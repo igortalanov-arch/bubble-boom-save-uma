@@ -1,0 +1,2464 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" name="viewport"/>
+<meta content="#dfe9f2" name="theme-color"/>
+<meta content="dark light" name="color-scheme"/>
+<meta content="Созвездие — аркада-головоломка: стеклянные сферы с водой, кислотой и Умой. Наклоняй стол, открывай шиберы, собери маршрут к спасательной сфере." name="description"/>
+<title>Бабл-бум! Спасти Уму — v3.7</title>
+<!--
+  БАБЛ-БУМ! · Спасти Уму · v3.7 (uma)
+  v3.7: планы автосборки L3/L7/L8/L10 переписаны (устранён редкий гибель Умы
+  от металла на финише — вход через нижний порт + мягкий наклон; L10 — ключ
+  и Ума сразу в замок через T6); кривая сфер 3,3,3,4,5,5,5,6,6,6 (L5 +D,
+  L7 +M, L8 +M+N-датчик); на L7 кислотный путь открыт на вход; L10 упрощён
+  (минимум — вода+гиря+замок, 3★ — все 4 детали); попап «Новая механика»
+  (Ур. 2-10); кнопка 💡-подсказка (3 бесплатно, дальше реклама; подсветка
+  шибера/стрелка наклона); звёзды: автосборка — не выше ★, подсказки — не
+  выше ★★; визуальные эффекты химии (вспышка нейтрализации, опускание чаши
+  и взлёт флажка весов, осколки стекла).
+  Основа — v3.0 (фикс заслонок). В v3.1:
+   - 14 типов шариков (масса/заряд/ключ), магниты, гелий (антигравитация), взрывчатка;
+   - новые сферы: горячая, холодильная, весовая (защёлка шибера), замковая (ключ), датчик;
+   - хрупкие трубки со стеклянной перегородкой;
+   - 10 уровней, выбор уровня, зал славы, справка, прогресс и рекорды в localStorage.
+   - ЗАДВИЖКА: при закрытом шибере шарик останавливается У ЗАСЛОНКИ (плоскость
+     клапана), а не проезжает её до поверхности сферы; шибер нельзя закрыть,
+     если шарик в зоне заслонки; расталкивание в трубке тоже уважает заслонку.
+   - Обозначение версии видно внизу игрового экрана.
+   - Уровень = «стол» из стеклянных сфер (2–12), соединённых короткими трубками.
+   - 6 портов на сфере (±X ±Y ±Z). Концепция стыка: (сфера)−(клапан-шибер)−(трубка)−(клапан-шибер)−(сфера):
+     КАЖДЫЙ конец трубки перекрыт собственным шибером; шарик проходит только при двух открытых.
+   - Шарики (вода/кислота/Ума) катаются ВНУТРИ сферы — честная 3D-физика
+     (гравитация в локальном каркасе, стенка-сфера, контакты PBD, барабан лото).
+   - Хендофф сфера↔труба: 3D ↔ 1D-движение по касательной.
+   - Управление: турнтейбл (yaw+pitch) без крена, снап 15°, инерция ≤1.8 рад/с,
+     двойной тап — сброс, HUD наклона с отвесом. Наклон = направление стока.
+   - Химия: кислота заражает воду (1 с) и губит Уму (1 с). Побеждает Ума+вода
+     в сфере выхода.
+  Один файл, без внешних зависимостей. Платформы: Яндекс Игры / VK / Web.
+-->
+<style>
+:root{
+  --aqua:#28c4e8; --aqua2:#0e9cc4; --emerald:#3ddc84; --coral:#ff6a6a;
+  --ink:#173042; --mut:#5b7386;
+  --panel:rgba(255,255,255,.78); --panel-b:rgba(20,120,150,.28);
+  --bg1:#e8f2f8; --bg2:#d7e6f0; --bg3:#c3d7e4;
+  --btnbg:rgba(255,255,255,.88); --btnb:rgba(14,120,150,.45);
+  --hint:#1d4b60; --dim:#6d8496;
+  --shadow:0 6px 18px rgba(20,60,80,.18);
+}
+[data-theme="dark"]{
+  --ink:#e6f4fa; --mut:#8fb3c4;
+  --panel:rgba(10,26,38,.72); --panel-b:rgba(40,196,232,.30);
+  --bg1:#081720; --bg2:#05101a; --bg3:#030a10;
+  --btnbg:rgba(12,34,48,.85); --btnb:rgba(40,196,232,.45);
+  --hint:#bfe6f2; --dim:#6f93a5;
+  --shadow:0 6px 18px rgba(0,0,0,.45);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:'Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;touch-action:none;
+  background:linear-gradient(var(--bg1),var(--bg2) 55%,var(--bg3));
+  display:flex;flex-direction:column}
+button{font-family:inherit;color:var(--ink);background:var(--btnbg);border:1px solid var(--btnb);
+  border-radius:12px;min-height:48px;min-width:48px;padding:8px 14px;font-size:15px;font-weight:600;
+  cursor:pointer;box-shadow:var(--shadow);transition:filter .15s,transform .12s}
+button:active{transform:scale(.96)}
+button.primary{background:linear-gradient(160deg,var(--aqua),var(--aqua2));color:#04222e;border-color:rgba(255,255,255,.5);font-size:18px}
+button.ghost{background:var(--panel);border-color:var(--panel-b)}
+@media (hover:hover){button:hover{filter:brightness(1.08)}}
+#chrome{display:flex;justify-content:center;align-items:center;gap:8px;padding:4px 10px 2px;z-index:7;height:50px;flex:0 0 auto;
+  background:var(--panel);border-bottom:1px solid var(--panel-b)} /* v3.5: подложка — кнопки читаются поверх игры */
+#chrome .c{display:flex;gap:8px;align-items:center}
+#btn-back{min-width:48px;display:none;align-items:center;justify-content:center}
+#btn-back.on{display:inline-flex}
+.ico-btn{min-width:48px;position:relative;display:inline-flex;align-items:center;justify-content:center}
+#lang-lbl{font-weight:800;letter-spacing:.5px}
+.screen{position:fixed;inset:0;display:none;z-index:5}
+.screen.on{display:flex}
+.screen-scroll{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.center{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+.logo{font-size:clamp(30px,8vw,58px);font-weight:900;letter-spacing:4px;text-align:center;
+  color:var(--aqua2);text-shadow:0 2px 0 #fff,0 4px 14px rgba(20,160,200,.35)}
+[data-theme="dark"] .logo{color:var(--aqua);text-shadow:0 0 18px rgba(40,196,232,.55),0 2px 3px #000}
+.h1sub{font-size:clamp(14px,2.4vw + 8px,24px);letter-spacing:6px;color:var(--hint);font-weight:700;text-align:center}
+.menu-actions{display:flex;flex-direction:column;gap:10px;width:min(86vw,340px);margin-top:8px}
+.menu-actions button{width:100%}
+.ver{font-size:11px;color:var(--dim);margin-top:10px;text-align:center}
+.card{background:var(--panel);border:1px solid var(--panel-b);border-radius:14px;padding:10px 16px;margin-top:12px;text-align:center;color:var(--hint)}
+.lvlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;max-width:560px;margin:18px auto 0}
+.lvlcard{position:relative;background:var(--panel);border:1px solid var(--panel-b);border-radius:14px;padding:10px 6px 8px;text-align:center;color:var(--ink)}
+.lvlcard .num{font-size:22px;font-weight:900;color:var(--aqua)}
+.lvlcard .nm{font-size:10.5px;color:var(--hint);min-height:16px;line-height:1.25;margin-top:2px}
+.lvlcard .st{font-size:12px;color:#d8b23a;min-height:14px;letter-spacing:1px}
+.lvlcard.locked{opacity:.45}
+.lvlcard:active{transform:scale(.96)}
+.hallrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--panel-b);border-radius:12px;padding:8px 12px;margin-top:8px;text-align:left}
+.hallrow .rk{width:28px;font-weight:900;color:var(--aqua);text-align:center;flex:none}
+.hallrow .nm{flex:1;color:var(--hint);font-size:13.5px}
+.hallrow .sc{font-weight:800;white-space:nowrap}
+.hallrow .sc .st{color:#d8b23a;letter-spacing:1px;margin-left:6px}
+.refbox{max-width:760px;text-align:left}
+.refbox h3{color:var(--aqua);margin:16px 0 6px;letter-spacing:1px}
+.refbox p{font-size:14px;line-height:1.5;color:var(--hint)}
+.refbox .bdot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1px solid rgba(255,255,255,.45)}
+.reffoot{margin-top:18px;text-align:center;color:var(--mut);font-size:13px;letter-spacing:.5px}
+.scr-title{font-size:clamp(20px,4vw,30px);letter-spacing:2px;text-align:center;color:var(--hint);margin:14px 8px 6px}
+.helpbox{max-width:620px;margin:6px auto 26px;background:var(--panel);border:1px solid var(--panel-b);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.helpbox h3{font-size:15px;letter-spacing:1px;color:var(--aqua2);margin:10px 0 6px}
+[data-theme="dark"] .helpbox h3{color:var(--aqua)}
+.helpbox p,.helpbox li{font-size:14px;line-height:1.5;color:var(--ink)}
+.helpbox ul{padding-left:20px}
+#scr-game{position:fixed;inset:0;display:none;z-index:4}
+#scr-game.on{display:flex}
+#stage{flex:1;position:relative;overflow:hidden}
+#gl{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl.grabbing{cursor:grabbing}
+#ctrl{position:absolute;right:12px;top:auto;bottom:calc(88px + env(safe-area-inset-bottom,0px)); /* v3.5: колонка зума НАД кнопками наклона — не перекрывает их */
+  display:grid;grid-template-columns:54px;grid-auto-rows:54px;gap:8px;z-index:6}
+#ctrl button{width:54px;height:54px;min-width:54px;min-height:54px;padding:4px;font-size:24px;border-radius:14px}
+#ctrl button:active{background:var(--aqua)}
+#tiltHud{position:absolute;top:142px;left:12px;z-index:6; /* v3.5: ниже плашки задания */
+  background:var(--panel);border:1px solid var(--panel-b);border-radius:12px;padding:3px 12px;min-height:26px;
+  font-weight:800;font-size:14px;color:var(--hint);pointer-events:none;display:none;align-items:center;gap:6px;
+  box-shadow:var(--shadow)}
+#tiltHud.on{display:flex}
+#tiltHud.snap{border-color:var(--emerald);color:var(--hint2,#0c7a4d)}
+#spinPad{position:absolute;bottom:16px;right:14px;z-index:6;display:none;gap:10px;user-select:none;-webkit-user-select:none} /* v2.5: правый нижний угол — центр низа оставляем клапанам */
+#spinPad.on{display:flex}
+#spinPad button{width:52px;height:52px;border-radius:50%;border:1.5px solid rgba(60,120,150,.55);
+ background:rgba(235,248,254,.92);color:#173042;font-size:20px;line-height:1;
+ display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+ box-shadow:0 2px 8px rgba(20,60,90,.18);touch-action:manipulation}
+#spinPad button:active{transform:scale(.9)}
+#spinPad #sp-reset{border-color:rgba(61,180,120,.75);color:#0c7a4d;font-size:23px}
+[data-theme="dark"] #spinPad button{background:rgba(16,40,58,.9);color:#cfeaf5;border-color:rgba(127,216,239,.5)}
+[data-theme="dark"] #spinPad #sp-reset{border-color:rgba(61,220,132,.6);color:#7dedb0}
+#lvlTitle{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:5;text-align:center;pointer-events:none; /* v3.5: ниже меню (#chrome 50px), на плашке — читается поверх канваса */
+  max-width:min(92vw,600px);background:var(--panel);border:1px solid var(--panel-b);border-radius:14px;
+  padding:7px 16px 8px;box-shadow:var(--shadow)}
+#lvlTitle .lt-name{font-size:clamp(14px,2.4vw,18px);font-weight:800;color:var(--hint);letter-spacing:.5px}
+#lvlTitle .lt-sub{font-size:11.5px;font-weight:700;color:var(--mut);margin-top:3px;letter-spacing:.4px;line-height:1.35}
+#verLbl{position:absolute;bottom:12px;left:14px;z-index:6;font-size:11px;font-weight:600;letter-spacing:.5px;opacity:.6;pointer-events:none;color:var(--ink)}
+[data-theme="dark"] #verLbl{color:#cfeaf5}
+#hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));
+  max-width:min(88vw,520px);background:var(--panel);border:1px solid var(--panel-b);border-radius:14px;
+  padding:8px 14px;font-size:13px;font-weight:600;color:var(--hint);text-align:center;
+  box-shadow:var(--shadow);display:none;z-index:6;pointer-events:none}
+#hint.on{display:block}
+#dragHint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom,0px));
+  font-size:12px;font-weight:700;color:var(--dim);letter-spacing:.4px;display:none;z-index:6;pointer-events:none}
+#dragHint.on{display:block}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9;
+  background:rgba(8,20,30,.55);backdrop-filter:blur(3px)}
+.overlay.on{display:flex}
+.ov-card{background:var(--panel);border:1px solid var(--panel-b);border-radius:20px;padding:22px 26px;
+  max-width:min(92vw,420px);width:100%;text-align:center;box-shadow:var(--shadow)}
+.ov-card h2{font-size:22px;letter-spacing:1px;color:var(--hint);margin-bottom:6px}
+.ov-card p{font-size:14px;color:var(--mut);margin:6px 0 14px}
+.ov-actions{display:flex;flex-direction:column;gap:10px}
+#w-stars{font-size:34px;letter-spacing:6px;margin:4px 0}
+#w-stars .st{opacity:.22}
+#w-stars .st.on{opacity:1;text-shadow:0 0 16px rgba(216,178,58,.65)}
+#w-stars.pop .st.on{animation:starPop .5s cubic-bezier(.2,1.6,.4,1) backwards}
+@keyframes starPop{0%{transform:scale(0) rotate(-40deg)}100%{transform:scale(1)}}
+#toast{position:fixed;left:50%;top:16%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--panel-b);
+  border-radius:12px;padding:8px 16px;font-size:14px;font-weight:700;color:var(--hint);z-index:10;display:none;
+  box-shadow:var(--shadow);pointer-events:none;max-width:86vw;text-align:center}
+#b-auto{position:absolute;left:12px;bottom:calc(44px + env(safe-area-inset-bottom,0px));z-index:6;
+  display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:8px 18px;font-size:16px;font-weight:800;
+  letter-spacing:.6px;border-radius:16px}
+#b-auto.on{background:linear-gradient(160deg,var(--emerald),#18a35e);color:#03230e;border-color:rgba(255,255,255,.68)}
+#b-hint{position:absolute;left:12px;bottom:calc(104px + env(safe-area-inset-bottom,0px));z-index:6; /* v3.7: над кнопкой АВТО */
+  display:inline-flex;align-items:center;gap:7px;min-height:48px;padding:8px 18px;font-size:16px;font-weight:800;
+  letter-spacing:.6px;border-radius:16px}
+#b-hint #b-hint-lbl{min-width:14px;text-align:center}
+#mech{position:absolute;left:50%;top:33%;transform:translate(-50%,-50%);z-index:6;pointer-events:none; /* v3.7: попап «Новая механика» */
+  display:none;flex-direction:column;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--panel-b);
+  border-radius:18px;padding:14px 22px;box-shadow:var(--shadow);max-width:min(88vw,440px);text-align:center}
+#mech.on{display:flex;animation:mechIn .3s cubic-bezier(.2,1.4,.4,1)}
+#mech .m-t{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--aqua2)}
+[data-theme="dark"] #mech .m-t{color:var(--aqua)}
+#mech .m-b{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;color:var(--hint)}
+#mech-dot{width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.5);flex:0 0 auto;box-shadow:0 2px 6px rgba(20,60,90,.25)}
+@keyframes mechIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+/* ===== v3.2: МОБИЛЬНАЯ ЧИТАЕМОСТЬ (телефон) ===== */
+@media (pointer:coarse),(max-width:720px){
+  button{font-size:17px;min-height:52px;padding:9px 16px}
+  #chrome{height:56px}
+  #chrome .c{gap:10px}
+  .logo{letter-spacing:3px}
+  .h1sub{letter-spacing:4px;font-size:clamp(15px,3.4vw,22px)}
+  .menu-actions{width:min(90vw,360px);gap:12px}
+  .menu-actions button{min-height:56px;font-size:18px}
+  .lvlgrid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px}
+  .lvlcard .num{font-size:27px}
+  .lvlcard .nm{font-size:12.5px}
+  .lvlcard .st{font-size:13.5px}
+  .hallrow .nm{font-size:15px}
+  .hallrow .sc{font-size:15px}
+  .hallrow .rk{width:32px;font-size:17px}
+  .refbox p{font-size:15.5px;line-height:1.55}
+  .refbox h3{font-size:17px}
+  .reffoot{font-size:14.5px}
+  .helpbox h3{font-size:17px}
+  .helpbox p,.helpbox li{font-size:15.5px;line-height:1.55}
+  .scr-title{font-size:clamp(22px,5vw,30px)}
+  #lvlTitle{top:68px;padding:9px 14px 10px} /* v3.5: ниже верхнего меню (56px), на плашке */
+  #lvlTitle .lt-name{font-size:clamp(17px,4.4vw,21px)}
+  #lvlTitle .lt-sub{font-size:13px;margin-top:4px}
+  #verLbl{font-size:13px;opacity:.8;bottom:calc(76px + env(safe-area-inset-bottom,0px))} /* v3.5: выше ряда кнопок наклона */
+  #hint{font-size:15px;padding:10px 16px;bottom:calc(162px + env(safe-area-inset-bottom,0px))} /* v3.5: выше ряда АВТО/зум */
+  #dragHint{font-size:13.5px;bottom:calc(232px + env(safe-area-inset-bottom,0px))}
+  #toast{font-size:15px;padding:10px 18px}
+  .ov-card{padding:24px 20px}
+  .ov-card h2{font-size:24px}
+  .ov-card p{font-size:15.5px}
+  .ov-actions button{min-height:54px;font-size:17px}
+  #w-stars{font-size:40px}
+  #ctrl{grid-template-columns:repeat(3,60px);grid-auto-rows:60px;gap:10px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom,0px))} /* v3.5: ряд − ↺ + над кнопками наклона */
+  #ctrl button{width:60px;height:60px;min-width:60px;min-height:60px;font-size:27px}
+  #spinPad{bottom:calc(14px + env(safe-area-inset-bottom,0px));right:12px;gap:12px}
+  #spinPad button{width:58px;height:58px;font-size:23px}
+  #tiltHud{font-size:16px;padding:5px 14px;min-height:30px;top:216px} /* v3.5: ниже плашки задания */
+  #b-auto{bottom:calc(96px + env(safe-area-inset-bottom,0px));font-size:17px;min-height:52px;padding:10px 20px} /* v3.5: выше кнопок наклона */
+  #b-hint{bottom:calc(162px + env(safe-area-inset-bottom,0px));font-size:17px;min-height:52px;padding:10px 20px}
+  #mech{top:47%} /* v3.7: ниже длинного заголовка задания */
+  #mech .m-b{font-size:16px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  #chrome{height:44px}
+  #lvlTitle{top:52px;padding:5px 12px 6px} /* v3.5: ниже меню (44px) */
+  #tiltHud{top:140px}
+  #ctrl{grid-template-columns:repeat(3,44px);grid-auto-rows:44px;gap:6px;right:10px;bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+  #ctrl button{width:44px;height:44px;min-width:44px;min-height:44px;font-size:20px}
+  #spinPad{bottom:calc(10px + env(safe-area-inset-bottom,0px));right:10px;gap:8px}
+  #spinPad button{width:46px;height:46px;font-size:20px}
+  #b-auto{bottom:calc(70px + env(safe-area-inset-bottom,0px));min-height:44px;padding:6px 14px;font-size:15px}
+  #b-hint{bottom:calc(124px + env(safe-area-inset-bottom,0px));min-height:44px;padding:6px 14px;font-size:15px}
+  #mech{top:58%} /* v3.7: в ландшафте — ниже заголовка (hint и mech не пересекаются по времени: попап ≤2,2с, подсказки после 8с) */
+  #verLbl{bottom:10px} /* v3.5: в ландшафте левый низ свободен (кнопки наклона правее) */
+  #hint{bottom:calc(136px + env(safe-area-inset-bottom,0px));max-width:min(76vw,520px)}
+  #dragHint{bottom:calc(206px + env(safe-area-inset-bottom,0px))}
+  .logo{font-size:clamp(26px,9vh,40px);letter-spacing:2px}
+  .center{gap:8px;padding:10px}
+  .menu-actions{flex-direction:row;width:auto;max-width:96vw;flex-wrap:wrap;justify-content:center}
+  .menu-actions button{min-width:190px}
+  .scr-title{margin:6px 8px 2px}
+}
+</style>
+</head>
+<body>
+
+<div id="chrome"><div class="c">
+  <button class="ghost ico-btn" id="btn-back" type="button">‹</button>
+  <button class="ghost ico-btn" id="btn-sound" type="button" aria-label="Sound">♪</button>
+  <button class="ghost ico-btn" id="btn-lang" type="button"><span id="lang-lbl">EN</span></button>
+  <button class="ghost ico-btn" id="btn-theme" type="button">◐</button>
+</div></div>
+
+<section class="screen on" id="scr-start"><div class="screen-scroll"><div class="center">
+  <div class="logo" id="m-logo"></div>
+  <div class="h1sub" id="m-sub"></div>
+  <div class="menu-actions">
+    <button class="primary" id="b-play" type="button"></button>
+    <button id="b-levels" type="button"></button>
+    <button id="b-hof" type="button"></button>
+    <button id="b-ref" type="button"></button>
+    <button id="b-help" type="button"></button>
+  </div>
+  <p class="ver" id="m-ver"></p>
+</div></div></section>
+
+<section class="screen" id="scr-levels"><div class="screen-scroll"><div class="center">
+  <h2 class="scr-title" id="lv-title"></h2>
+  <div class="lvlgrid" id="lvlGrid"></div>
+</div></div></section>
+
+<section class="screen" id="scr-hof"><div class="screen-scroll"><div class="center">
+  <h2 class="scr-title" id="hof-title"></h2>
+  <div class="card" id="hof-total"></div>
+  <div id="hofList" style="max-width:560px;margin:6px auto 0;padding:0 4px"></div>
+</div></div></section>
+
+<section class="screen" id="scr-ref"><div class="screen-scroll"><div class="center refbox">
+  <h2 class="scr-title" id="ref-title"></h2>
+  <div id="ref-body"></div>
+  <p class="reffoot" id="ref-foot"></p>
+</div></div></section>
+
+<section class="screen" id="scr-help"><div class="screen-scroll">
+  <h2 class="scr-title" id="help-title"></h2>
+  <div class="helpbox" id="help-body"></div>
+  <p class="ver" id="help-footer" style="text-align:center"></p>
+</div></section>
+
+<section id="scr-game">
+  <div id="stage"><canvas id="gl"></canvas></div>
+  <div id="ctrl" aria-label="Управление видом">
+    <button class="ghost" id="bZoomOut" type="button" aria-label="−">−</button>
+    <button class="ghost" id="bReset" type="button" aria-label="↺">↺</button>
+    <button class="ghost" id="bZoomIn" type="button" aria-label="+">+</button>
+  </div>
+  <div id="lvlTitle"><div class="lt-name" id="lt-name"></div><div class="lt-sub" id="lt-sub"></div></div>
+  <div id="mech"><div class="m-t" id="mech-t"></div><div class="m-b"><span id="mech-dot"></span><span id="mech-txt"></span></div></div>
+  <div id="tiltHud"><span id="tiltDeg">0°</span></div>
+  <div id="spinPad">
+   <button id="sp-left" type="button"></button><button id="sp-up" type="button"></button><button id="sp-reset" type="button"></button><button id="sp-down" type="button"></button><button id="sp-right" type="button"></button>
+  </div>
+  <div id="dragHint"></div>
+  <div id="hint"></div>
+  <button id="b-auto" type="button"><span id="b-auto-ico">⚡</span><span id="b-auto-lbl"></span></button>
+  <button id="b-hint" type="button" aria-label="hint"><span id="b-hint-ico">💡</span><span id="b-hint-lbl">3</span></button>
+  <div id="verLbl">v3.7 · uma</div>
+</section>
+
+<div class="overlay" id="ov-win"><div class="ov-card">
+  <h2 id="w-title"></h2>
+  <div id="w-stars"><span class="st">★</span><span class="st">★</span><span class="st">★</span></div>
+  <p id="w-time"></p>
+  <div class="ov-actions">
+    <button class="primary" id="w-next"></button>
+    <button id="w-menu"></button>
+  </div>
+</div></div>
+
+<div class="overlay" id="ov-lose"><div class="ov-card">
+  <h2 id="l-title"></h2>
+  <p id="l-msg"></p>
+  <div class="ov-actions">
+    <button class="primary" id="l-retry"></button>
+    <button id="l-menu"></button>
+  </div>
+</div></div>
+
+<div class="overlay" id="ov-auto"><div class="ov-card">
+  <h2 id="au-title"></h2>
+  <p id="au-reason"></p>
+  <div class="ov-actions">
+    <button class="primary" id="au-retry"></button>
+    <button id="au-menu"></button>
+  </div>
+</div></div>
+
+<div class="overlay" id="ov-pause"><div class="ov-card">
+  <h2 id="p-title"></h2>
+  <div class="ov-actions">
+    <button class="primary" id="p-resume"></button>
+    <button id="p-help"></button>
+    <button id="p-menu"></button>
+  </div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ================= ЛОКАЛИЗАЦИЯ ========================================= */
+let LANG='ru';
+try{const v=localStorage.getItem('sozvezdie_lang');if(v==='en'||v==='ru')LANG=v;}catch(e){}
+function lang(){return (navigator.language||'ru').slice(0,2);}
+const I18N={
+ru:{
+ logo:'БАБЛ-БУМ!', sub:'СПАСТИ УМУ', play:'ИГРАТЬ', help:'КАК ИГРАТЬ', levels:'ВЫБОР УРОВНЯ', hof:'ЗАЛ СЛАВЫ', ref:'СПРАВКА',
+ ver:'v3.7 «Бабл-бум! Спасти Уму» · uma · 2026', back:'Назад',
+ auto:'АВТО', auto_stop:'СТОП', auto_on:'Автосборка: наклоняю конструкцию и ссыпаю шарики…', auto_hint:'Масштаб: щипок, колесо или кнопки +/−. Остановить — кнопка «СТОП».', auto_off:'Автосборка остановлена', auto_fail:'Автосборка не справилась — попробуйте сами!', ad_fail:'Реклама недоступна',
+ auto_no:'АВТОСБОРКА НЕВОЗМОЖНА', auto_r_dead:'Ума погибла', auto_r_ball:'Утрачен ценный шарик — уровень не собрать', auto_r_fail:'План автосборки не удаётся выполнить', au_retry:'Заново', au_menu:'В меню',
+ mech_t:'НОВАЯ МЕХАНИКА',
+ mech2:'Щёлочь — нейтрализует кислоту', mech3:'Металл — на скорости пробивает стекло', mech4:'Гелий — всплывает вверх', mech5:'Магнит — притягивает металлы', mech6:'Лёд — в жаре становится водой', mech7:'Гиря — тяжёлая, давит на весы', mech8:'Взрывчатка — рвёт стеклянную перегородку', mech9:'Ключ ★ — открывает замок со знаком ★', mech10:'Финал: замок, весы, жар и лёд',
+ hint:'Подсказка', hint_gates:'Открой шибер(ы): %1', hint_tilt:'Наклони сферу %1 — смотри стрелку', hint_flat:'Выровняй конструкцию (сброс)', hint_done:'Все шаги сделаны — шарики докатятся сами!',
+ star_auto:'автосборка — не выше ★', star_hint:'подсказки — не выше ★★', star_items:'собраны не все детали — не выше ★★',
+ sound_on:'Звук: вкл', sound_off:'Звук: выкл', theme_light:'Светлая тема', theme_dark:'Тёмная тема',
+ help_title:'КАК ИГРАТЬ',
+ help_html:'<h3>БАБЛ-БУМ! СПАСТИ УМУ</h3><p>Стеклянные сферы стоят на столе. Внутри — вода, кислота и Ума. Наклоняй стол перетаскиванием: шарики катятся к нижней стороне каждой сферы, как в барабане лото.</p><h3>СТЫКИ И ШИБЕРЫ</h3><p>У каждой сферы 6 портов. Схема соединения: (сфера) − (клапан-шибер) − (трубка) − (клапан-шибер) − (сфера). Каждый стык перекрыт собственным шибером с буквой: шарик пройдёт трубку, только если открыты ОБА её шибера. Тап по клапану (или клавиши 1–6) переключает шибер. Всё стекло — прохождение шарика видно на всём пути.</p><h3>НАКЛОН</h3><p>Тяни пальцем/мышью — стол наклоняется без крена, со снапом 15° (угол — в индикаторе слева, стрелка-отвес показывает направление стока). Двойной тап по пустому месту — выровнять стол. Стрелки/WASD — по 15°, Q/E — точный доворот, R — заново, Esc — пауза. Кнопки внизу экрана: влево/вправо — поворот конструкции на 90°, вверх/вниз — наклон на 45°, с длинным плавным выбегом; ⟳ — плавный сброс в исходное положение.</p><h3>ТАП ПО ПОРТУ И КОМПАС</h3><p>Тап по стеклянному патрубку между сферой и клапаном — стол сам плавно наклонится так, что этот порт станет нижней точкой: шарики покатятся к нему (потекут только при открытых шиберах). Компас в правом верхнем углу: тап по стрелке — наклон в эту сторону экрана, центр — сброс стола, зелёная игла показывает текущее направление стока.</p><h3>ХИМИЯ</h3><p><b>Вода</b> нужна, чтобы открыть спасательную сферу. <b>Кислота</b> (зелёная) заражает воду за 1 с контакта и губит Уму. Не проливай воду в кислотную сферу!</p><h3>ПОБЕДА</h3><p>Проведи Уму и хотя бы одну каплю воды в спасательную сферу со звёздой. 3★ — быстрее 30 с, 2★ — быстрее 60 с.</p><h3>АВТОСБОРКА</h3><p>Кнопка ⚡ «АВТО» (внизу слева) сама наклоняет конструкцию и собирает уровень до победы. На Яндекс Играх и VK — после просмотра рекламы; в одиночной HTML-версии — сразу. Повторное нажатие — стоп.</p>',
+ ln1:'Ур. 1 · Первая вода', lt1:'Ума + вода в спасательной сфере',
+ ln2:'Ур. 2 · Нейтраль', lt2:'Щёлочь нейтрализует кислоту — затем веди Уму и воду',
+ ln3:'Ур. 3 · Пролом', lt3:'Металл на скорости разбивает стеклянную перегородку',
+ ln4:'Ур. 4 · Гелий и стекло', lt4:'Гелий взлетает и открывает шибер; металл ломает перегородку',
+ ln5:'Ур. 5 · Магнитный колодец', lt5:'Магнит вытащит металл из колодца; гелий откроет путь',
+ ln6:'Ур. 6 · Лёд и пламя', lt6:'Лёд плавится в горячей сфере, вода мёрзнет в холодильной',
+ ln7:'Ур. 7 · Гиря на весах', lt7:'Весы открывают единственный путь: гиря (3) или два металла (4). Кислота — короткий путь только для грузов',
+ ln8:'Ур. 8 · Взрыв и весы', lt8:'Гиря или взрыв разбивают перегородку; датчик воды открывает путь; весы (порог 3) замкнёт гиря',
+ ln9:'Ур. 9 · Ключ и весы', lt9:'Настоящий ключ ★ — в замок (путь Умы); гиря впритык давит весы (путь грузов); ◆ — обманка',
+ ln10:'Ур. 10 · Всё вместе', lt10:'Финал: замок, весы, жар и лёд. Минимум — вода и гиря; 3★ — собери все детали',
+ drag_touch:'тяни пальцем — стол наклоняется', drag_pc:'тяни мышью — стол наклоняется',
+ h1:'Наклоняй стол: шарики катятся к нижнему порту сферы',
+ h2:'Сфера с кислотой — ловушка. Веди Уму к спасательной сфере (открой ОБА шибера: В и Е, либо Б и Д)',
+ h3:'Шарик пройдёт трубку только при ДВУХ открытых шиберах (тапы или 1–6)',
+ win_title:'УМА СПАСЕНА!', win_final:'УМА СВОБОДНА!', win_time:'Время', next:'Дальше', next_last:'В меню', menu:'Меню',
+ lose_title:'УМА ПОГИБЛА', lose_msg:'Кислота добралась до Умы. Попробуй другой маршрут.',
+ retry:'Заново',
+ pause:'ПАУЗА', resume:'Продолжить', p_help:'Как играть',
+ infect:'Вода заражена кислотой!', gate_blocked:'Шибер не закрыть: шарик рядом',
+ star3:'3★ — быстрее %d с', star2:'2★ — быстрее %d с',
+ sp_l:'Повернуть конструкцию влево', sp_r:'Повернуть конструкцию вправо',
+ sp_u:'Наклонить конструкцию вверх', sp_d:'Наклонить конструкцию вниз',
+ sp_0:'Сброс: вернуть конструкцию в исходное положение',
+ lv_title:'ВЫБОР УРОВНЯ', hof_title:'ЗАЛ СЛАВЫ', ref_title:'СПРАВКА',
+ hof_total:'Всего звёзд: %d из %d', hof_norec:'— ещё не пройден —',
+ neutralized:'Кислота нейтрализована — сфера безопасна',
+ latched:'Защёлка сработала: шибер открыт навсегда',
+ unlocked:'Замок открыт: шибер открыт навсегда',
+ key_lost:'Ключ растворён в кислоте!',
+ glass_broken:'Стекло разбито!',
+ L2h1:'Розовая щёлочь нейтрализует зелёную кислоту — отправь её вперёд Умы',
+ L3h1:'Тяжёлый металл разгоняется на крутом наклоне и разбивает стекло',
+ L3h2:'Сначала металл, потом вода и Ума — не толкай металл в Уму',
+ L4h1:'Гелий всегда стремится вверх: открой ему вертикальную трубку',
+ L4h2:'Металл разобьёт перегородку и освободит воду из кладовой',
+ L5h1:'Магнит притягивает металл: приведи их в колодец вместе',
+ L5h2:'Шибер выхода откроется, когда гелий подня́ется в верхнюю сферу',
+ L6h1:'В горячей сфере лёд тает в воду, в холодильной вода замерзает',
+ L6h2:'Замёрзшая вода в холодильной сфере надавит на датчик — шибер откроется',
+ L7h1:'Весы держат 2,5: гиря (3) или два металла (4) защёлкнут их',
+ L7h2:'Кислотная сфера — короткий путь для грузов; Уме и воде там гибель',
+ L8h1:'Перегородку кладовой разбивает гиря или взрыв — держи Уму подальше',
+ L8h2:'Порог весов 3: гиря входит ровно; две воды с Умой — тоже залог',
+ L9h1:'Ключ ★ вставь в замок — откроется путь Умы; ключ ◆ — обманка',
+ L9h2:'Грузы — через весы: гиря (3) впритык, два металла (4) с запасом',
+ L10h1:'Сначала ключ ★ в замок, затем взрывчатка в стекло',
+ L10h2:'Через горячую сферу лёд станет водой — все мелкие в финиш',
+ ref_html:'<h3>ШАРИКИ И ИХ ВЗАИМОДЕЙСТВИЯ</h3>'
+ +'<p><span class="bdot" style="background:#1e7fc0"></span><b>Вода</b> — нужна для победы. Заражается кислотой за 1 с контакта и сама становится кислотой.</p>'
+ +'<p><span class="bdot" style="background:#2fae4a"></span><b>Кислота</b> — заражает воду, растворяет ключи, детонирует взрывчатку и губит Уму за 1 с контакта. Щёлочь нейтрализует её: оба становятся инертной солью.</p>'
+ +'<p><span class="bdot" style="background:#c0508a"></span><b>Щёлочь</b> (розовая) — единственное противоядие: кислота + щёлочь → соль. В кислотной сфере нейтрализует саму сферу.</p>'
+ +'<p><span class="bdot" style="background:#606870"></span><b>Металл</b> (серый, тяжёлый) — на скорости разбивает стеклянные перегородки; притягивается магнитами; сильный удар губит Уму.</p>'
+ +'<p><span class="bdot" style="background:#c0d8e8"></span><b>Гелий</b> (белёсый) — легче воздуха: всегда стремится вверх, даже против наклона. Ни с чем не реагирует.</p>'
+ +'<p><span class="bdot" style="background:#a0c8d8"></span><b>Стекло</b> (прозрачный шарик) — инертен; бьётся от удара металла или взрыва.</p>'
+ +'<p><span class="bdot" style="background:#c02020"></span><b>Магнит +</b> и <span class="bdot" style="background:#2020c0"></span><b>Магнит −</b> — притягивают металл и разноимённый магнит, отталкивают одноимённый.</p>'
+ +'<p><span class="bdot" style="background:#60b0d0"></span><b>Лёд</b> — в горячей сфере тает в воду за 2 с; в холодильной вода, наоборот, замерзает.</p>'
+ +'<p><span class="bdot" style="background:#701818"></span><b>Взрывчатка</b> (чёрная с алой полосой) — детонирует от сильного удара или контакта с кислотой: разбивает стекло в радиусе, толкает шарики, губит Уму вблизи; взрывы цепные.</p>'
+ +'<p><span class="bdot" style="background:#28303a"></span><b>Гиря</b> (самая тяжёлая) — не магнитится; идеально давит на весы; с разгона разбивает стеклянные перегородки.</p>'
+ +'<p><span class="bdot" style="background:#c09020"></span><b>Ключ ★ / ◆</b> (золотой) — открывает замковую сферу с совпадающим символом; в кислоте растворяется.</p>'
+ +'<p><span class="bdot" style="background:#909090"></span><b>Соль</b> — серый инертный остаток нейтрализации, ни на что не влияет.</p>'
+ +'<h3>СФЕРЫ</h3>'
+ +'<p><b>Обычная и стартовая</b> — просто стекло. <b>Спасательная ★</b> — финиш: Ума плюс груз по условию уровня. <b>Кислотная</b> (зелёный оттенок) — ванна с кислотой: нейтрализуется щёлочью. <b>Горячая</b> (оранжевое свечение) — плавит лёд. <b>Холодильная</b> (голубой иней) — морозит воду. <b>Весовая</b> (чаша и флажок) — пока суммарная масса внутри не меньше порога, шибер-цель открыт навсегда. <b>Замковая</b> (скважина с символом) — ключ с тем же символом открывает шибер-цель навсегда. <b>Датчик</b> (флажок) — нужный шарик внутри открывает шибер-цель.</p>'
+ +'<h3>ЛОВУШКИ И РЕШЕНИЯ</h3>'
+ +'<p><b>Кислотная ванна</b> — не веди туда Уму и воду. Решение: нейтрализуй щёлочью или обойди другой трубкой.</p>'
+ +'<p><b>Стеклянная перегородка</b> в хрупкой трубке — пропускает только металл, гирю и взрывчатку. Решение: металлу или гире нужен разгон (крутой наклон), взрывчатка срабатывает на стекле сама.</p>'
+ +'<p><b>Металл против Умы</b> — сильный удар металла гибелен. Решение: отправляй металл первым и отдельно от Умы.</p>'
+ +'<p><b>Взрывчатка рядом с Умой</b> — радиус взрыва губителен. Решение: подрывай стекло, когда Ума в другой сфере.</p>'
+ +'<p><b>Ложный ключ ◆</b> — символ не совпадает со скважиной. Решение: проверь символ на замке и не трать время.</p>'
+ +'<p><b>Колодец</b> — шарик, который не выкатить наклоном. Решение: примани магнитом или преобразуй (лёд → вода в горячей).</p>'
+ +'<p><b>Закрытый шибер-цель</b> — не открывается тапом. Решение: найди источник — весы (гиря/металлы), замок (нужный ключ) или датчик (нужный шарик).</p>'
+ +'<p><b>Автосборка</b> — кнопка ⚡ «АВТО» внизу слева игрового экрана: конструкция сама наклоняется, шиберы открываются, и уровень собирается до победы. На Яндекс Играх и VK автосборка включается после просмотра рекламы; в одиночной HTML-версии — сразу, без рекламы. Повторное нажатие останавливает автосборку. Если автосборке что-то помешает — Ума погибла или утрачен ценный шарик — появится окно с причиной и кнопками «Заново» и «В меню».</p>'
+ +'<p><b>Масштаб при автосборке</b> — пока автосборка идёт, можно приблизить картинку и рассмотреть происходящее: щипок двумя пальцами, колесо мыши или кнопки +/−; кнопка ↺ возвращает исходный масштаб. Остановить автосборку — кнопка «СТОП» (бывшая «АВТО»).</p>'
+ +'<p><b>Подсказка</b> — кнопка 💡 слева: подсвечивает следующий шаг — какой шибер открыть (пульсирующее кольцо) или куда наклонить конструкцию (стрелка у сферы). 3 подсказки на уровень бесплатно, дальше — за рекламу. Подсказки снижают оценку до ★★, автосборка — до ★.</p>'
+ +'<p><b>Звёзды</b> — 3★ и 2★ по времени. Честная игра: автосборка — не выше ★, подсказки — не выше ★★, а на Ур. 10 для 3★ нужно собрать все 4 детали (2 воды, гиря и магнит).</p>'
+ +'<h3 class="reffoot">Игра «Бабл-бум! Спасти Уму» · автор: Игорь Таланов · версия 3.7</h3>'
+},
+en:{
+ logo:'BUBBLE BOOM!', sub:'SAVE UMA', play:'PLAY', help:'HOW TO PLAY', levels:'LEVELS', hof:'HALL OF FAME', ref:'REFERENCE',
+ ver:'v3.7 “Bubble Boom! Save Uma” · uma · 2026', back:'Back',
+ auto:'AUTO', auto_stop:'STOP', auto_on:'Auto-solve: tilting the structure and pouring the balls…', auto_hint:'Zoom: pinch, wheel or the +/− buttons. To stop — the STOP button.', auto_off:'Auto-solve stopped', auto_fail:'Auto-solve failed — try it yourself!', ad_fail:'Ad unavailable',
+ auto_no:'AUTO-SOLVE IMPOSSIBLE', auto_r_dead:'Uma has died', auto_r_ball:'A valuable ball is lost — the level cannot be completed', auto_r_fail:'The auto-solve plan cannot be completed', au_retry:'Restart', au_menu:'Menu',
+ mech_t:'NEW MECHANIC',
+ mech2:'Alkali — neutralizes acid', mech3:'Metal — smashes glass at speed', mech4:'Helium — floats upward', mech5:'Magnet — attracts metals', mech6:'Ice — melts into water in heat', mech7:'Girya — heavy, presses the scale', mech8:'Explosive — blasts the glass barrier', mech9:'The ★ key — opens the ★ lock', mech10:'Finale: lock, scale, heat and ice',
+ hint:'Hint', hint_gates:'Open the gate(s): %1', hint_tilt:'Tilt sphere %1 — follow the arrow', hint_flat:'Level the structure (reset)', hint_done:'All steps done — the balls will roll in!',
+ star_auto:'auto-solve — ★ at most', star_hint:'hints — ★★ at most', star_items:'not all cargo collected — ★★ at most',
+ sound_on:'Sound: on', sound_off:'Sound: off', theme_light:'Light theme', theme_dark:'Dark theme',
+ help_title:'HOW TO PLAY',
+ help_html:'<h3>BUBBLE BOOM! SAVE UMA</h3><p>Glass spheres stand on a table. Inside — water, acid and Uma. Tilt the table by dragging: the balls roll to the lower side of each sphere, like in a lotto drum.</p><h3>JOINTS AND GATES</h3><p>Each sphere has 6 ports. The joint scheme: (sphere) − (gate valve) − (tube) − (gate valve) − (sphere). Every joint is closed by its own lettered gate: a ball passes through a tube only when BOTH of its gates are open. Tap a valve (or keys 1–6) to toggle a gate. Everything is glass — the ball is visible along the whole path.</p><h3>TILTING</h3><p>Drag with a finger or mouse — the table tilts without roll, snapping to 15° steps (angle in the left indicator; the plumb arrow shows the drain direction). Double-tap empty space to level the table. Arrows/WASD tilt in 15° steps, Q/E fine turn, R restart, Esc pause. The buttons at the bottom: left/right rotate the structure by 90°, up/down tilt it by 45°, with a long smooth glide; ⟳ smoothly resets it to the start position.</p><h3>TAP A PORT AND COMPASS</h3><p>Tap the glass stub between a sphere and its valve — the table smoothly tilts so that port becomes the lowest point: the balls roll toward it (they only flow when the gates are open). Compass in the top-right corner: tap an arrow to tilt in that screen direction, the centre resets the table, the green needle shows the current drain direction.</p><h3>CHEMISTRY</h3><p><b>Water</b> is needed to open the rescue sphere. <b>Acid</b> (green) infects water after 1 s of contact and kills Uma. Do not pour water into the acid sphere!</p><h3>VICTORY</h3><p>Guide Uma and at least one drop of water into the star rescue sphere. 3★ — under 30 s, 2★ — under 60 s.</p><h3>AUTO-SOLVE</h3><p>The ⚡ “AUTO” button (bottom-left) tilts the structure by itself and solves the level to victory. On Yandex Games and VK — after watching an ad; in the single HTML version — immediately. Press again to stop.</p>',
+ ln1:'Lv. 1 · First Water', lt1:'Uma + water into the rescue sphere',
+ ln2:'Lv. 2 · Neutral', lt2:'Alkali neutralizes the acid — then lead Uma and water',
+ ln3:'Lv. 3 · Breakthrough', lt3:'Metal at speed breaks the glass barrier',
+ ln4:'Lv. 4 · Helium and Glass', lt4:'Helium flies up and opens a gate; metal breaks the barrier',
+ ln5:'Lv. 5 · Magnetic Well', lt5:'The magnet pulls metal out of the well; helium opens the way',
+ ln6:'Lv. 6 · Ice and Flame', lt6:'Ice melts in the hot sphere, water freezes in the cold one',
+ ln7:'Lv. 7 · Weight on the Scale', lt7:'The scale opens the only path: the girya (3) or two metals (4). The acid is a shortcut for cargo only',
+ ln8:'Lv. 8 · Blast and Scales', lt8:'The girya or the blast breaks the barrier; a water sensor opens the way; the scale (threshold 3) is latched by the girya',
+ ln9:'Lv. 9 · Key and Scales', lt9:'The true ★ key goes to the lock (the path for Uma); the girya just presses the scale (the cargo path); ◆ is a decoy',
+ ln10:'Lv. 10 · Everything Together', lt10:'Finale: lock, scale, heat and ice. Minimum — water and the girya; 3★ — gather every part',
+ drag_touch:'drag with a finger — the table tilts', drag_pc:'drag with the mouse — the table tilts',
+ h1:'Tilt the table: balls roll to the lower port of each sphere',
+ h2:'The acid sphere is a trap. Lead Uma to the rescue sphere (open BOTH gates: C and F, or B and E)',
+ h3:'A ball passes a tube only when BOTH gates are open (taps or 1–6)',
+ win_title:'UMA IS SAVED!', win_final:'UMA IS FREE!', win_time:'Time', next:'Next', next_last:'To menu', menu:'Menu',
+ lose_title:'UMA IS LOST', lose_msg:'The acid got Uma. Try another route.',
+ retry:'Retry',
+ pause:'PAUSE', resume:'Resume', p_help:'How to play',
+ infect:'Water infected by acid!', gate_blocked:'Cannot close: a ball is at the gate',
+ star3:'3★ — under %d s', star2:'2★ — under %d s',
+ sp_l:'Rotate the structure left', sp_r:'Rotate the structure right',
+ sp_u:'Tilt the structure up', sp_d:'Tilt the structure down',
+ sp_0:'Reset: return the structure to its start position',
+ lv_title:'LEVELS', hof_title:'HALL OF FAME', ref_title:'REFERENCE',
+ hof_total:'Total stars: %d of %d', hof_norec:'— not beaten yet —',
+ neutralized:'Acid neutralized — the sphere is safe',
+ latched:'Latch clicked: the gate is open forever',
+ unlocked:'Lock opened: the gate is open forever',
+ key_lost:'The key dissolved in acid!',
+ glass_broken:'Glass broken!',
+ L2h1:'Pink alkali neutralizes green acid — send it ahead of Uma',
+ L3h1:'Heavy metal gains speed on a steep tilt and breaks glass',
+ L3h2:'Metal first, then water and Uma — do not shove metal into Uma',
+ L4h1:'Helium always wants up: open the vertical tube for it',
+ L4h2:'Metal will break the barrier and free the water from the storeroom',
+ L5h1:'The magnet attracts metal: bring them into the well together',
+ L5h2:'The exit gate opens once helium rises into the top sphere',
+ L6h1:'Ice melts into water in the hot sphere; water freezes in the cold one',
+ L6h2:'Frozen water in the cold sphere presses the sensor — the gate opens',
+ L7h1:'The scale holds 2.5: the girya (3) or two metals (4) latch it',
+ L7h2:'The acid sphere is a shortcut for cargo; Uma and water die there',
+ L8h1:'The storeroom barrier is broken by the girya or a blast — keep Uma clear',
+ L8h2:'The scale threshold is 3: the girya fits exactly; two waters with Uma also work',
+ L9h1:'Insert the ★ key into the lock — it opens the path for Uma; the ◆ key is a decoy',
+ L9h2:'Girya onto the scale, explosive into the glass',
+ L10h1:'First the ★ key into the lock, then explosive into the glass',
+ L10h2:'In the hot sphere ice becomes water — bring everyone to the finish',
+ ref_html:'<h3>BALLS AND THEIR INTERACTIONS</h3>'
+ +'<p><span class="bdot" style="background:#1e7fc0"></span><b>Water</b> — needed to win. Infected by acid after 1 s of contact, becomes acid itself.</p>'
+ +'<p><span class="bdot" style="background:#2fae4a"></span><b>Acid</b> — infects water, dissolves keys, detonates explosive and kills Uma after 1 s of contact. Alkali neutralizes it: both become inert salt.</p>'
+ +'<p><span class="bdot" style="background:#c0508a"></span><b>Alkali</b> (pink) — the only antidote: acid + alkali → salt. Inside an acid sphere it neutralizes the sphere itself.</p>'
+ +'<p><span class="bdot" style="background:#606870"></span><b>Metal</b> (grey, heavy) — breaks glass barriers at speed; attracted by magnets; a strong hit kills Uma.</p>'
+ +'<p><span class="bdot" style="background:#c0d8e8"></span><b>Helium</b> (pale) — lighter than air: always strives upward, even against the tilt. Reacts with nothing.</p>'
+ +'<p><span class="bdot" style="background:#a0c8d8"></span><b>Glass</b> (transparent ball) — inert; shattered by a metal hit or an explosion.</p>'
+ +'<p><span class="bdot" style="background:#c02020"></span><b>Magnet +</b> and <span class="bdot" style="background:#2020c0"></span><b>Magnet −</b> — attract metal and the opposite magnet, repel the like one.</p>'
+ +'<p><span class="bdot" style="background:#60b0d0"></span><b>Ice</b> — melts into water in a hot sphere in 2 s; in a cold sphere water freezes instead.</p>'
+ +'<p><span class="bdot" style="background:#701818"></span><b>Explosive</b> (black with a scarlet stripe) — detonates on a hard hit or acid contact: breaks glass in radius, pushes balls, kills Uma nearby; explosions chain.</p>'
+ +'<p><span class="bdot" style="background:#28303a"></span><b>Girya</b> (the heaviest) — not magnetic; perfect for pressing scales; smashes glass barriers at speed.</p>'
+ +'<p><span class="bdot" style="background:#c09020"></span><b>Key ★ / ◆</b> (golden) — opens the lock sphere with the matching symbol; dissolves in acid.</p>'
+ +'<p><span class="bdot" style="background:#909090"></span><b>Salt</b> — grey inert leftover of neutralization, affects nothing.</p>'
+ +'<h3>SPHERES</h3>'
+ +'<p><b>Normal and start</b> — just glass. <b>Rescue ★</b> — the finish: Uma plus cargo per the level goal. <b>Acid</b> (green tint) — an acid bath: neutralized by alkali. <b>Hot</b> (orange glow) — melts ice. <b>Cold</b> (blue frost) — freezes water. <b>Scale</b> (bowl and flag) — while the total mass inside is at least the threshold, the target gate stays open forever. <b>Lock</b> (keyhole with a symbol) — a key with the same symbol opens its target gate forever. <b>Sensor</b> (flag) — the required ball inside opens the target gate.</p>'
+ +'<h3>TRAPS AND SOLUTIONS</h3>'
+ +'<p><b>Acid bath</b> — do not lead Uma or water there. Solution: neutralize with alkali or go around via another tube.</p>'
+ +'<p><b>Glass barrier</b> in a fragile tube — lets only metal, the girya and explosive in. Solution: metal or the girya needs speed (a steep tilt); explosive triggers on the glass itself.</p>'
+ +'<p><b>Metal vs Uma</b> — a strong metal hit is fatal. Solution: send metal first and separately from Uma.</p>'
+ +'<p><b>Explosive near Uma</b> — the blast radius is lethal. Solution: blow the glass when Uma is in another sphere.</p>'
+ +'<p><b>False key ◆</b> — the symbol does not match the keyhole. Solution: check the lock symbol and do not waste time.</p>'
+ +'<p><b>Well</b> — a ball you cannot roll out by tilting. Solution: lure it with a magnet or transform it (ice → water in the hot sphere).</p>'
+ +'<p><b>Closed target gate</b> — cannot be toggled by tapping. Solution: find its source — a scale (girya/metals), a lock (the right key) or a sensor (the right ball).</p>'
+ +'<p><b>Auto-solve</b> — the ⚡ “AUTO” button at the bottom-left of the game screen: the structure tilts by itself, gates open, and the level is solved to victory. On Yandex Games and VK, auto-solve unlocks after watching an ad; in the single HTML version it works immediately, with no ad. Pressing it again stops the auto-solve. If something prevents the auto-solve — Uma has died or a valuable ball is lost — a window appears with the reason and the “Restart” and “Menu” buttons.</p>'
+ +'<p><b>Zoom during auto-solve</b> — while the auto-solve is running you can zoom in and watch closely: pinch with two fingers, mouse wheel or the +/− buttons; the ↺ button restores the default view. Press the STOP button (the former AUTO one) to stop it.</p>'
+ +'<p><b>Hint</b> — the 💡 button on the left: highlights the next step — which gate to open (pulsing ring) or where to tilt (arrow at the sphere). 3 hints per level are free, then one per ad. Hints cap the score at ★★, auto-solve at ★.</p>'
+ +'<p><b>Stars</b> — 3★ and 2★ by time. Honest play: auto-solve — ★ at most, hints — ★★ at most, and on level 10 the 3★ requires all 4 parts (2 waters, the girya and the magnet).</p>'
+ +'<h3 class="reffoot">Game “Bubble Boom! Save Uma” · author: Igor Talanov · version 3.7</h3>'
+}};
+function T(k){const d=I18N[LANG]||I18N.ru;return (d[k]!=null?d[k]:(I18N.ru[k]!=null?I18N.ru[k]:k));}
+function setLang(l){LANG=(l==='en')?'en':'ru';try{localStorage.setItem('sozvezdie_lang',LANG);}catch(e){}try{refreshSpinPad();}catch(e){}
+ document.title=LANG==='en'?'Bubble Boom! Save Uma — v3.7':'Бабл-бум! Спасти Уму — v3.7';}
+
+/* ================= ПЛАТФОРМА (Яндекс/VK правила сохранены) ============ */
+const Plat=(()=>{
+ const hasY=()=>typeof window!=='undefined'&&typeof window.ysdk!=='undefined'&&window.ysdk;
+ return {
+  init(){ if(hasY()){try{window.ysdk.features.LoadingAPI&&window.ysdk.features.LoadingAPI.ready();}catch(e){}} },
+  gameplayStart(){ if(hasY()){try{window.ysdk.features.GameplayAPI&&window.ysdk.features.GameplayAPI.start();}catch(e){}} },
+  gameplayStop(){ if(hasY()){try{window.ysdk.features.GameplayAPI&&window.ysdk.features.GameplayAPI.stop();}catch(e){}} },
+  reward(cb){ /* v3.2: награда за рекламу; в одиночном файле — без рекламы */
+   if(hasY()){try{window.ysdk.adv.showRewardedVideo({callbacks:{onRewarded:()=>{cb();},onClose:()=>{},onError:()=>{try{toast(T('ad_fail'));}catch(e){}}}});return;}catch(e){}}
+   if(typeof window!=='undefined'&&window.vkBridge){try{window.vkBridge.send('VKWebAppShowNativeAds',{ad_format:'reward'}).then(r=>{if(r&&r.result)cb();}).catch(()=>{});return;}catch(e){}}
+   cb();
+  }
+ };
+})();
+
+/* ================= ЗВУК (компактный синт) ============================= */
+let sndOn=true;try{sndOn=localStorage.getItem('sozvezdie_sound')!=='off';}catch(e){}
+let AC=null;
+function ac(){ if(AC)return AC; try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} return AC; }
+function tone(f,dur,type,vol,glide,delay){
+ if(!sndOn)return; const a=ac(); if(!a)return;
+ try{
+  const t0=a.currentTime+(delay||0);
+  const o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,t0);
+  if(glide)o.frequency.exponentialRampToValueAtTime(Math.max(40,glide),t0+dur);
+  g.gain.setValueAtTime(vol||.1,t0); g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0+dur+.02);
+ }catch(e){}
+}
+const S={
+ click:()=>tone(950,.05,'square',.07),
+ sel:()=>{tone(1250,.07,'sine',.14);tone(1900,.05,'sine',.07,0,.02);},
+ valve:()=>{tone(320,.06,'square',.12);tone(180,.09,'sine',.11,90,.03);},
+ denied:()=>tone(160,.12,'sawtooth',.09),
+ bubble:()=>tone(520,.06,'sine',.06,860),
+ hiss:()=>tone(2200,.25,'sawtooth',.03,300),
+ win:()=>{tone(660,.12,'sine',.14);tone(880,.14,'sine',.14,0,.12);tone(1320,.22,'sine',.12,0,.26);},
+ lose:()=>{tone(300,.3,'sawtooth',.1,120);tone(150,.4,'sine',.1,80,.1);},
+ latch:()=>{tone(1200,.04,'square',.12);tone(700,.06,'sine',.1,0,.03);},
+ explode:()=>{tone(80,.4,'sawtooth',.2,40);tone(50,.5,'square',.12,30,.05);},
+ glass:()=>{tone(2400,.15,'sawtooth',.08,800);tone(3100,.1,'triangle',.06,1200,.04);}
+};
+
+/* ================= МАТЕМАТИКА: кватернионы + матрицы ================== */
+function qAxisAngle(ax,a){const l=Math.hypot(ax[0],ax[1],ax[2])||1,s=Math.sin(a/2);
+ return [ax[0]/l*s,ax[1]/l*s,ax[2]/l*s,Math.cos(a/2)];}
+function qNormalize(q){const l=Math.hypot(q[0],q[1],q[2],q[3])||1;return q.map(v=>v/l);}
+function qMultiply(a,b){return [
+ a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],
+ a[3]*b[1]-a[0]*b[2]+a[1]*b[3]+a[2]*b[0],
+ a[3]*b[2]+a[0]*b[1]-a[1]*b[0]+a[2]*b[3],
+ a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]];}
+function qConj(q){return [-q[0],-q[1],-q[2],q[3]];}
+function qRotateVec(q,v){
+ const qv=[v[0],v[1],v[2],0],qc=qConj(q);
+ const r=qMultiply(qMultiply(q,qv),qc);
+ return [r[0],r[1],r[2]];}
+function mI(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])}
+function mMul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;
+ for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
+function mPersp(fov,asp,n,f){const t=1/Math.tan(fov/2);return new Float32Array([t/asp,0,0,0,0,t,0,0,0,0,(f+n)/(n-f),-1,0,0,2*f*n/(n-f),0])}
+function mRotX(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1])}
+function mRotY(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1])}
+function mTrans(x,y,z){const m=mI();m[12]=x;m[13]=y;m[14]=z;return m}
+function tP(m,v){const w=m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15];
+ return [(m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12])/w,(m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13])/w,(m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14])/w,w];}
+
+/* ================= КОНСТАНТЫ И УРОВЕНЬ ================================= */
+const G=2.5;                 /* м/с² — как в Аква-Бум */
+const BALL_R=0.05, BALL_SP=0.105, VMAX=1.6, AIR=0.25, ROLL=2.6, REST=0.25;
+const PIPE_R=0.073, PIPE_RI=0.055;
+const VALVE_D=0.235;      /* v2.6: клапан на патрубке — между сферой и клапаном виден кусок стеклянной трубки */
+const AP_COS=Math.cos(0.85); /* v2.3: полуугол апертуры порта ~49° — при любом наклоне шарик попадает в ближайший порт (шаг портов 90°, худшая точка 45°) */
+const TUBE_DAMP=0.12, TUBE_VMAX=1.3; /* v2.3: длинные дуги пологие — трение качения низкое */
+const MASS={water:1,acid:1,uma:1,alkali:1,metal:2,helium:-1,glass:1.5,'magnet+':1.5,'magnet-':1.5,ice:1.5,explosive:1.5,girya:3,key:1,salt:1};
+const MAG_RANGE=0.5,MAG_K=0.05,METAL_KILL=1.4,GLASS_KILL=0.9,BOOM_HIT=0.95,BOOM_KILL=0.22,BOOM_PUSH=0.5,PANE_V=0.8;
+const UMA_HURT=1.0, ACID_D=BALL_SP*1.3;
+const SIM_HZ=30;
+const DEG=Math.PI/180;
+
+const LEVELS=[
+{name:'ln1',target:'lt1',stars:[30,60],win:{items:[{type:'water',count:1}]},
+ spheres:[
+  {id:'W',C:[0,0,-0.5],R:0.30,kind:'start'},
+  {id:'A',C:[-1.25,0,0.42],R:0.30,kind:'acid'},
+  {id:'F',C:[1.25,0,0.42],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'D',a:{s:'W',dir:[-1,0,0]},b:{s:'A',dir:[0,0,-1]}},
+  {id:'T2',gate:'B',gateB:'E',a:{s:'W',dir:[0,0,1]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T3',gate:'C',gateB:'F',a:{s:'W',dir:[1,0,0]},b:{s:'F',dir:[0,0,-1]}}],
+ balls:[{type:'water',s:'W',count:4},{type:'acid',s:'A',count:2},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:8,key:'h1'},{after:22,key:'h2'},{after:40,key:'h3'}]},
+{name:'ln2',target:'lt2',stars:[40,80],win:{items:[{type:'water',count:1}]},
+ spheres:[
+  {id:'W',C:[0,0,-0.5],R:0.30,kind:'start'},
+  {id:'A',C:[-1.25,0,0.42],R:0.30,kind:'acid'},
+  {id:'F',C:[1.25,0,0.42],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[-1,0,0]},b:{s:'A',dir:[0,0,-1]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'A',dir:[0,0,1]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'W',dir:[1,0,0]},b:{s:'F',dir:[0,0,-1]}}],
+ balls:[{type:'water',s:'W',count:3},{type:'alkali',s:'W',count:2},{type:'acid',s:'A',count:2},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:10,key:'L2h1'},{after:30,key:'h3'}]},
+{name:'ln3',target:'lt3',stars:[50,100],win:{items:[{type:'water',count:2}]},
+ spheres:[
+  {id:'W',C:[0,0,-0.5],R:0.30,kind:'start'},
+  {id:'V',C:[-1.25,0,0.42],R:0.30,kind:'vault'},
+  {id:'F',C:[1.25,0,0.42],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',fragile:true,a:{s:'W',dir:[-1,0,0]},b:{s:'V',dir:[0,0,-1]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'V',dir:[0,0,1]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'W',dir:[1,0,0]},b:{s:'F',dir:[0,0,-1]}}],
+ balls:[{type:'metal',s:'W'},{type:'water',s:'V',count:2},{type:'uma',s:'W'}],
+ openGates:['A','B'],hints:[{after:10,key:'L3h1'},{after:30,key:'L3h2'}]},
+{name:'ln4',target:'lt4',stars:[60,120],win:{items:[{type:'water',count:1},{type:'metal',count:1}]},
+ spheres:[
+  {id:'W',C:[-1.1,0,0.1],R:0.30,kind:'start'},
+  {id:'N',C:[-1.1,0,1.35],R:0.30,kind:'normal'},
+  {id:'T',C:[-1.1,1.25,0.1],R:0.30,kind:'normal',mods:{sensor:{ballType:'helium',targetGate:'A',latched:false}}},
+  {id:'F',C:[1.5,0,0.7],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[1,0,0]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'W',dir:[0,1,0]},b:{s:'T',dir:[0,-1,0]}},
+  {id:'T3',gate:'E',gateB:'F',fragile:true,a:{s:'W',dir:[0,0,1]},b:{s:'N',dir:[0,0,-1]}}],
+ balls:[{type:'metal',s:'W'},{type:'water',s:'N',count:2},{type:'helium',s:'W'},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:10,key:'L4h1'},{after:30,key:'L4h2'}]},
+{name:'ln5',target:'lt5',stars:[70,140],win:{items:[{type:'metal',count:1},{type:'magnet+',count:1}]},
+ spheres:[
+  {id:'W',C:[-1.3,0,-0.2],R:0.30,kind:'start'},
+  {id:'K',C:[0.1,0,1.0],R:0.30,kind:'normal'},
+  {id:'D',C:[1.0,0,2.0],R:0.30,kind:'normal'},
+  {id:'T',C:[-1.3,1.25,-0.2],R:0.30,kind:'normal',mods:{sensor:{ballType:'helium',targetGate:'C',latched:false}}},
+  {id:'F',C:[1.6,0,0.2],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[0,0,1]},b:{s:'K',dir:[-1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'K',dir:[0,0,1]},b:{s:'D',dir:[-1,0,0]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'D',dir:[0,0,-1]},b:{s:'F',dir:[-1,0,0]}}, /* v3.7: порты навстречу — чистый спуск */
+  {id:'T4',gate:'G',gateB:'H',a:{s:'W',dir:[0,1,0]},b:{s:'T',dir:[0,-1,0]}}],
+ balls:[{type:'magnet+',s:'W'},{type:'metal',s:'K'},{type:'helium',s:'W'},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:10,key:'L5h1'},{after:30,key:'L5h2'}]},
+{name:'ln6',target:'lt6',stars:[80,160],win:{items:[{type:'water',count:2}]},
+ spheres:[
+  {id:'W',C:[-1.4,0,-0.7],R:0.30,kind:'start'},
+  {id:'N',C:[-1.4,0,0.9],R:0.30,kind:'normal'},
+  {id:'H',C:[0.2,0,-1.1],R:0.30,kind:'hot',mods:{hot:true}},
+  {id:'C',C:[0.2,0,1.1],R:0.30,kind:'cold',mods:{cold:true,sensor:{ballType:'ice',targetGate:'C',latched:false}}},
+  {id:'F',C:[1.6,0,0.0],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[0,0,-1]},b:{s:'H',dir:[-1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'H',dir:[1,0,0]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'N',dir:[1,0,0]},b:{s:'C',dir:[-1,0,0]}},
+  {id:'T4',gate:'G',gateB:'H',a:{s:'C',dir:[0,0,-1]},b:{s:'H',dir:[0,0,1]}}],
+ balls:[{type:'ice',s:'W',count:2},{type:'water',s:'N',count:2},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:10,key:'L6h1'},{after:30,key:'L6h2'}]},
+{name:'ln7',target:'lt7',stars:[90,180],win:{items:[{type:'girya',count:1},{type:'water',count:1}]},
+ spheres:[
+  {id:'W',C:[0,0,-0.8],R:0.30,kind:'start'},
+  {id:'M',C:[-1.9,0,-0.8],R:0.30,kind:'normal'},
+  {id:'S',C:[-1.4,0,0.5],R:0.30,kind:'scale',mods:{scale:{threshold:2.5,targetGate:'E',latched:false}}},
+  {id:'A',C:[0,0,1.2],R:0.30,kind:'acid'},
+  {id:'F',C:[1.4,0,0.5],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[-1,0,0]},b:{s:'M',dir:[1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'M',dir:[0,0,1]},b:{s:'S',dir:[0,0,-1]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'S',dir:[1,0,0]},b:{s:'F',dir:[0,0,1]}}, /* v3.7: порты навстречу — вход в F у дна, металлы приходят первыми */
+  {id:'T4',gate:'G',gateB:'H',a:{s:'W',dir:[0,0,1]},b:{s:'A',dir:[0,0,-1]}},
+  {id:'T5',gate:'I',gateB:'J',a:{s:'A',dir:[1,0,0]},b:{s:'F',dir:[-1,0,0]}}],
+ balls:[{type:'girya',s:'W'},{type:'metal',s:'W',count:2},{type:'water',s:'W',count:2},{type:'acid',s:'A',count:2},{type:'uma',s:'W'}],
+ openGates:['G','H'], /* v3.7: кислотный короткий путь открыт НА ВХОД — быстрая дорога для грузов или ловушка; выход из кислоты (I,J) закрыт */hints:[{after:12,key:'L7h1'},{after:35,key:'L7h2'}]},
+{name:'ln8',target:'lt8',stars:[100,200],win:{items:[{type:'water',count:2},{type:'girya',count:1}]},
+ spheres:[
+  {id:'W',C:[-0.5,0,-0.9],R:0.30,kind:'start'},
+  {id:'M',C:[-1.9,0,-0.9],R:0.30,kind:'normal'},
+  {id:'V',C:[-1.9,0,0.6],R:0.30,kind:'vault'},
+  {id:'N',C:[-3.2,0,0.6],R:0.30,kind:'normal',mods:{sensor:{ballType:'water',targetGate:'E',latched:false}}},
+  {id:'S',C:[0.7,0,0.6],R:0.30,kind:'scale',mods:{scale:{threshold:3,targetGate:'G',latched:false}}},
+  {id:'F',C:[2.0,0,-0.3],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',fragile:true,a:{s:'W',dir:[-1,0,0]},b:{s:'M',dir:[1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'M',dir:[0,0,1]},b:{s:'V',dir:[0,0,-1]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'V',dir:[1,0,0]},b:{s:'S',dir:[-1,0,0]}},
+  {id:'T4',gate:'G',gateB:'H',a:{s:'S',dir:[1,0,0]},b:{s:'F',dir:[0,0,1]}},
+  {id:'T5',gate:'I',gateB:'J',a:{s:'V',dir:[-1,0,0]},b:{s:'N',dir:[1,0,0]}}],
+ balls:[{type:'explosive',s:'W'},{type:'girya',s:'W'},{type:'water',s:'V',count:3},{type:'uma',s:'W'}],
+ openGates:['A','B'],hints:[{after:12,key:'L8h1'},{after:35,key:'L8h2'}]},
+{name:'ln9',target:'lt9',stars:[110,220],win:{items:[{type:'girya',count:1},{type:'water',count:1}],needLock:true},
+ spheres:[
+  {id:'W',C:[-0.7,0,-0.9],R:0.30,kind:'start'},
+  {id:'G',C:[-2.1,0,0.0],R:0.30,kind:'normal'},
+  {id:'V',C:[-1.0,0,0.9],R:0.30,kind:'vault'},
+  {id:'L',C:[-0.7,0,1.3],R:0.30,kind:'lock',mods:{lock:{symbol:'★',targetGate:'C',latched:false}}},
+  {id:'S',C:[1.0,0,0.9],R:0.30,kind:'scale',mods:{scale:{threshold:3,targetGate:'I',latched:false}}},
+  {id:'F',C:[2.6,0,-0.5],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[0,0,1]},b:{s:'L',dir:[-1,0,0]}},
+  {id:'T2',gate:'C',gateB:'D',a:{s:'L',dir:[1,0,0]},b:{s:'F',dir:[0,0,1]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'G',dir:[0,0,1]},b:{s:'V',dir:[-1,0,0]}},
+  {id:'T4',gate:'G',gateB:'H',a:{s:'V',dir:[0,0,1]},b:{s:'S',dir:[-1,0,0]}},
+  {id:'T5',gate:'I',gateB:'J',a:{s:'S',dir:[1,0,0]},b:{s:'F',dir:[-1,0,0]}}],
+ balls:[{type:'key',s:'W',keySymbol:'★'},{type:'key',s:'W',keySymbol:'◆'},{type:'girya',s:'G'},{type:'metal',s:'G',count:2},{type:'water',s:'V',count:2},{type:'uma',s:'W'}],
+ openGates:[],hints:[{after:12,key:'L9h1'},{after:35,key:'L9h2'}]},
+{name:'ln10',target:'lt10',stars:[150,300],win:{items:[{type:'water',count:1},{type:'girya',count:1}],needLock:true}, /* v3.7: минимум для победы; 3★ — все 4 детали (см. onWin) */
+ spheres:[
+  {id:'W',C:[-1.1,0,-0.9],R:0.30,kind:'start'},
+  {id:'V',C:[-2.3,0,0.1],R:0.30,kind:'vault'},
+  {id:'L',C:[-1.1,0,1.3],R:0.30,kind:'lock',mods:{lock:{symbol:'★',targetGate:'C',latched:false}}},
+  {id:'S',C:[0.1,0,0.9],R:0.30,kind:'scale',mods:{scale:{threshold:3,targetGate:'G',latched:false}}},
+  {id:'H',C:[1.9,0,1.3],R:0.30,kind:'hot',mods:{hot:true}},
+  {id:'F',C:[1.3,0,-0.5],R:0.32,kind:'exit'}],
+ tubes:[
+  {id:'T1',gate:'A',gateB:'B',a:{s:'W',dir:[-1,0,0]},b:{s:'V',dir:[0,0,-1]}}, /* v3.7: без перегородки — финал проще */
+  {id:'T2',gate:'C',gateB:'D',a:{s:'L',dir:[1,0,0]},b:{s:'F',dir:[-1,0,0]}},
+  {id:'T3',gate:'E',gateB:'F',a:{s:'V',dir:[1,0,0]},b:{s:'S',dir:[-1,0,0]}},
+  {id:'T4',gate:'G',gateB:'H',a:{s:'S',dir:[1,0,0]},b:{s:'H',dir:[-1,0,0]}},
+  {id:'T5',gate:'I',gateB:'J',a:{s:'H',dir:[0,0,-1]},b:{s:'F',dir:[0,0,1]}},
+  {id:'T6',gate:'K',gateB:'L',a:{s:'W',dir:[0,0,1]},b:{s:'L',dir:[-1,0,0]}}],
+ balls:[{type:'key',s:'W',keySymbol:'★'},{type:'girya',s:'W'},{type:'ice',s:'W'},{type:'magnet+',s:'W'},{type:'water',s:'V',count:2},{type:'uma',s:'V'}], /* v3.7: Ума в V — приходит в F последней */
+ openGates:['A','B'],hints:[{after:15,key:'L10h1'},{after:45,key:'L10h2'}]}
+];
+let lvIdx=0;
+let progress=0;try{progress=Math.max(0,Math.min(LEVELS.length-1,parseInt(localStorage.getItem('bb31_progress'))||0));}catch(e){}
+let records={};try{records=JSON.parse(localStorage.getItem('bb31_records'))||{};}catch(e){}
+function saveProgress(){try{localStorage.setItem('bb31_progress',progress);}catch(e){}}
+function saveRecords(){try{localStorage.setItem('bb31_records',JSON.stringify(records));}catch(e){}}
+function unlockedLv(i){return i<=progress;}
+function startLevel(i){lvIdx=clamp(i,0,LEVELS.length-1);startGame();}
+const GATE_KEYS={A:'Digit1',B:'Digit2',C:'Digit3',D:'Digit4',E:'Digit5',F:'Digit6',G:'Digit7',H:'Digit8',I:'Digit9'};
+const GATE_LBL={ru:{A:'А',B:'Б',C:'В',D:'Г',E:'Д',F:'Е',G:'Ж',H:'З',I:'И',J:'К',K:'Л',L:'М'},en:{A:'A',B:'B',C:'C',D:'D',E:'E',F:'F',G:'G',H:'H',I:'I',J:'J',K:'K',L:'L'}};
+
+/* ================= ТУРНТЕЙБЛ (v1.1.1, для горизонтального стола) ======
+   yaw — разворот стола (меняет направление стока), pitch — крен стола
+   (меняет величину наклона). Крена вокруг вертикали нет по построению. */
+const rot={q:[0,0,0,1]};
+const TT={yaw:0,pitch:0,vyaw:0,vpitch:0,anim:null};
+const TT_SNAP=Math.PI/12,TT_DAMP=9,TT_VMIN=0.22,TT_VMAX=1.0,TT_PMAX=Math.PI/2; /* v2.7: наклон до 90° (порт точно вниз), инерция мягче */
+const TT_BYAW=Math.PI/2, TT_BPITCH=Math.PI/4; /* v2.5: кнопки — поворот 90°, наклон 45° */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function ttApply(){
+ TT.yaw=((TT.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+ TT.pitch=clamp(TT.pitch,-TT_PMAX,TT_PMAX);
+ rot.q=qNormalize(qMultiply(qAxisAngle([1,0,0],TT.pitch),qAxisAngle([0,1,0],TT.yaw)));
+}
+function ttDrag(dx,dy,dt){
+ TT.anim=null;
+ const k=0.0058,dYaw=dx*k,dP=dy*k;
+ TT.yaw+=dYaw;TT.pitch=clamp(TT.pitch+dP,-TT_PMAX,TT_PMAX);
+ const iv=1/Math.max(.008,dt);
+ TT.vyaw=TT.vyaw*.7+dYaw*iv*.3;TT.vpitch=TT.vpitch*.7+dP*iv*.3;
+ const sp=Math.hypot(TT.vyaw,TT.vpitch);
+ if(sp>TT_VMAX){const f=TT_VMAX/sp;TT.vyaw*=f;TT.vpitch*=f;}
+ ttApply();
+}
+function ttKey(dP,dY){TT.vyaw=TT.vpitch=0;TT.anim=null;TT.yaw+=dY;TT.pitch=clamp(TT.pitch+dP,-TT_PMAX,TT_PMAX);ttApply();}
+function ttHaptic(){try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}
+function ttSnap(){
+ const y1=Math.round(TT.yaw/TT_SNAP)*TT_SNAP,p1=Math.round(TT.pitch/TT_SNAP)*TT_SNAP;
+ if(Math.abs(y1-TT.yaw)<0.0015&&Math.abs(p1-TT.pitch)<0.0015)return;
+ TT.anim={t:0,dur:0.35,y0:TT.yaw,p0:TT.pitch,y1,p1,haptic:true};
+}
+function ttReset(){TT.vyaw=TT.vpitch=0;TT.anim={t:0,dur:2.6,y0:TT.yaw,p0:TT.pitch,y1:0,p1:0,haptic:false};} /* v2.7: плавный возврат 2.6 с */
+function ttStep(dt){
+ if(TT.anim){
+  TT.anim.t+=dt;const a=TT.anim,x=Math.min(1,a.t/a.dur),e=x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2; /* v2.7: ease-in-out — плавный разгон и торможение */
+  TT.yaw=a.y0+(a.y1-a.y0)*e;TT.pitch=clamp(a.p0+(a.p1-a.p0)*e,-TT_PMAX,TT_PMAX);ttApply();
+  if(x>=1){const h=a.haptic;TT.anim=null;if(h)ttHaptic();}
+  return;
+ }
+ if(Math.hypot(TT.vyaw,TT.vpitch)>0.05){
+  TT.yaw+=TT.vyaw*dt;TT.pitch=clamp(TT.pitch+TT.vpitch*dt,-TT_PMAX,TT_PMAX);
+  const d=Math.exp(-TT_DAMP*dt);TT.vyaw*=d;TT.vpitch*=d;ttApply();
+  if(Math.hypot(TT.vyaw,TT.vpitch)<TT_VMIN){TT.vyaw=TT.vpitch=0;ttSnap();}
+ }
+}
+
+/* ================= СОСТОЯНИЕ УРОВНЯ ==================================== */
+let spheres=[],tubes=[],balls=[],gates={},gameState='idle',winT=0,levelT=0,levelStart=0,shownHint=-1;
+const PORT_DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+function pathMetrics(pts){
+ const len=[],cum=[0];let L=0;
+ for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1],pts[i][2]-pts[i-1][2]);len.push(d);L+=d;cum.push(L);}
+ return {len,cum,L};
+}
+function pathPointAt(pts,cum,s){
+ if(s<=0)return pts[0].slice();
+ const total=cum[cum.length-1];if(s>=total)return pts[pts.length-1].slice();
+ for(let i=1;i<pts.length;i++)if(s<=cum[i]+1e-9){
+  const span=cum[i]-cum[i-1],f=span>1e-9?(s-cum[i-1])/span:0;
+  return pts[i-1].map((v,k)=>v+(pts[i][k]-v)*f);
+ }
+ return pts[pts.length-1].slice();
+}
+function pathTangentAt(pts,cum,s){
+ for(let i=1;i<pts.length;i++)if(s<=cum[i]+1e-8){
+  const d=pts[i].map((v,k)=>v-pts[i-1][k]),l=Math.hypot(...d)||1;return d.map(v=>v/l);
+ }
+ const a=pts[pts.length-2]||pts[0],b=pts[pts.length-1],d=b.map((v,k)=>v-a[k]),l=Math.hypot(...d)||1;return d.map(v=>v/l);
+}
+let LVB={x:1.8,z:1.3,y0:-0.3,y1:0.8};
+function buildLevel(){
+ const LEVEL=LEVELS[lvIdx];
+ spheres=LEVEL.spheres.map(s=>({...s,mods:s.mods?JSON.parse(JSON.stringify(s.mods)):null,ports:PORT_DIRS.map(d=>({dir:d,tube:null}))}));
+ const byId={};spheres.forEach((s,i)=>byId[s.id]=i);
+ tubes=LEVEL.tubes.map(t=>{
+  const A=spheres[byId[t.a.s]],B=spheres[byId[t.b.s]];
+  const pa=t.a.dir.map((v,k)=>A.C[k]+v*A.R),pb=t.b.dir.map((v,k)=>B.C[k]+v*B.R);
+  /* v2.2: путь — от поверхности сферы СКВОЗЬ клапан, изогнутой трубкой (кубический
+     Безье, касательные вдоль осей клапанов) между внешними фланцами, снова сквозь
+     клапан — и в следующую сферу */
+  const EXT=VALVE_D+0.148;
+  const outA=pa.map((v,k)=>v+t.a.dir[k]*EXT),outB=pb.map((v,k)=>v+t.b.dir[k]*EXT);
+  /* v2.7: ОДНА кубическая Безье между внешними фланцами клапанов — гладкая
+     S-кривая БЕЗ стыка посередине (две дуги давали излом на стыке).
+     Касательные на концах — вдоль осей клапанов: трубка плавно выходит из
+     клапана и плавно входит в следующий. Порты сфер смотрят навстречу —
+     кривая не петляет. */
+  const chv=outB.map((v,k)=>v-outA[k]);
+  const chl=Math.hypot(...chv)||1;
+  const HB=0.52*chl;
+  const C1=outA.map((v,k)=>v+t.a.dir[k]*HB),C2=outB.map((v,k)=>v+t.b.dir[k]*HB);
+  const NC=24,curve=[];
+  for(let k=0;k<=NC;k++){const u=1-k/NC,w=k/NC;
+   curve.push([u*u*u*outA[0]+3*u*u*w*C1[0]+3*u*w*w*C2[0]+w*w*w*outB[0],
+               u*u*u*outA[1]+3*u*u*w*C1[1]+3*u*w*w*C2[1]+w*w*w*outB[1],
+               u*u*u*outA[2]+3*u*u*w*C1[2]+3*u*w*w*C2[2]+w*w*w*outB[2]]);}
+  const pts=[pa,...curve,pb],m=pathMetrics(pts);
+  const tube={...t,aS:byId[t.a.s],bS:byId[t.b.s],aDir:t.a.dir,bDir:t.b.dir,
+   pts,cum:m.cum,L:m.L,pa,pb,ia:1,ib:pts.length-2,fragile:!!t.fragile,broken:false,
+   tan0:pathTangentAt(pts,m.cum,0.001),tanL:pathTangentAt(pts,m.cum,m.L-0.001)};
+  A.ports.forEach(p=>{if(p.dir[0]===t.a.dir[0]&&p.dir[1]===t.a.dir[1]&&p.dir[2]===t.a.dir[2])p.tube={ref:tube,end:0};});
+  B.ports.forEach(p=>{if(p.dir[0]===t.b.dir[0]&&p.dir[1]===t.b.dir[1]&&p.dir[2]===t.b.dir[2])p.tube={ref:tube,end:1};});
+  return tube;
+ });
+ gates={};LEVEL.tubes.forEach(t=>{gates[t.gate]={open:false,ang:0};gates[t.gateB]={open:false,ang:0};});
+ (LEVEL.openGates||[]).forEach(l=>{if(gates[l])gates[l].open=true;});
+ balls=[];
+ /* v3.6: стартовая раскладка — шарики УЖЕ лежат на дне сферы, РАЗДЕЛЬНО:
+    Ума — в самой нижней точке, вокруг лёгкие, тяжёлые (гиря/металл/взрывчатка/
+    магниты) — внешним кольцом подальше от Умы. Никакого «дождя из шариков»
+    на старте и падений тяжёлых на Уму (в v3.5 на L8 взрывчатка падала на Уму
+    и уровень проигрывался на 0.4 секунде). */
+ const HEAVY={girya:1,metal:1,explosive:1,'magnet+':1,'magnet-':1,glass:1,ice:1};
+ for(const sp of LEVEL.balls){
+  const si=byId[sp.s];
+  for(let k=0;k<(sp.count||1);k++){
+   balls.push({type:sp.type,where:{kind:'sphere',i:si},
+    p:null,v:[0,0,0],u:0,v1d:0,hurtT:0,blink:0,dead:false,
+    mass:MASS[sp.type]||1,
+    charge:sp.type==='magnet+'?1:(sp.type==='magnet-'?-1:0),
+    keySymbol:sp.type==='key'?(sp.keySymbol||'★'):null,
+    freezeT:0,acidT:0,_hv:!!HEAVY[sp.type]});
+  }
+ }
+ (function layoutBalls(){
+  const groups={};
+  balls.forEach((b,ix)=>{(groups[b.where.i]=groups[b.where.i]||[]).push(ix);});
+  for(const gsi in groups){
+   const S1=spheres[gsi],list=groups[gsi];
+   /* порядок заполнения слотов: Ума (центр дна) → лёгкие → тяжёлые (внешнее кольцо) */
+   const uma=list.filter(ix=>balls[ix].type==='uma');
+   const light=list.filter(ix=>balls[ix].type!=='uma'&&!balls[ix]._hv);
+   const heavy=list.filter(ix=>balls[ix]._hv&&balls[ix].type!=='uma');
+   const order=[...uma,...light,...heavy];
+   const R1=S1.R-BALL_R-0.006,step=2.18*BALL_R;
+   order.forEach((ix,k)=>{
+    let dx=0,dz=0;
+    if(k>0){
+     const ring=Math.floor((k+5)/6);            /* кольцо 1 — слоты 1..6, кольцо 2 — 7..12 */
+     const inRing=(k-1)%6,per=6;
+     const rr=Math.min(step*ring,R1*.96);
+     const a=inRing*(Math.PI*2/per)+.35*ring;
+     dx=Math.cos(a)*rr;dz=Math.sin(a)*rr;
+    }
+    const dy=-Math.sqrt(Math.max(1e-4,R1*R1-dx*dx-dz*dz));
+    balls[ix].p=[S1.C[0]+dx,S1.C[1]+dy,S1.C[2]+dz];
+   });
+  }
+ })();
+ /* v3.1: рамки уровня для авто-вписывания в кадр */
+ let mnx=1e9,mxx=-1e9,mnz=1e9,mxz=-1e9,mny=1e9,mxy=-1e9;
+ for(const S of spheres){
+  mnx=Math.min(mnx,S.C[0]-S.R);mxx=Math.max(mxx,S.C[0]+S.R);
+  mnz=Math.min(mnz,S.C[2]-S.R);mxz=Math.max(mxz,S.C[2]+S.R);
+  mny=Math.min(mny,S.C[1]-S.R);mxy=Math.max(mxy,S.C[1]+S.R);
+ }
+ LVB={x:Math.max(Math.abs(mnx),Math.abs(mxx))+0.28,z:Math.max(Math.abs(mnz),Math.abs(mxz))+0.28,y0:mny,y1:mxy};
+ cam.targetY=clamp((mny+mxy)/2+STRUCT_Y,0.45,1.6);
+ autoReset();attemptAuto=false;HINTS.free=3;HINTS.used=0;HINTS.idx=0;HINTS.t=0; /* v3.7: счётчики попытки */
+ gameState='play';winT=0;levelT=0;shownHint=-1;levelStart=modsT();
+ TT.yaw=0;TT.pitch=0;TT.vyaw=TT.vpitch=0;TT.anim=null;ttApply();
+ try{resize();}catch(e){}
+ Plat.gameplayStart();
+}
+function modsT(){return typeof performance!=='undefined'&&typeof performance.now==='function'?performance.now():Date.now();}
+function gateOfPort(port){return port.tube.end===0?port.tube.ref.gate:port.tube.ref.gateB;} /* шибер СТОЯЩИЙ на этом стыке */
+/* выход из сферы в трубку разрешён, только если шибер ЭТОГО стыка открыт;
+   v3.1: целая стеклянная перегородка пускает только металл и взрывчатку */
+function exitAllowed(b,port){
+ const t=port.tube.ref;
+ if(t.fragile&&!t.broken&&b.type!=='metal'&&b.type!=='explosive'&&b.type!=='girya')return false;
+ return !!(port.tube&&gates[gateOfPort(port)].open);
+}
+
+/* ================= ФИЗИКА ============================================== */
+function gLocal(){return qRotateVec(qConj(rot.q),[0,-G,0]);}
+function step(dt){
+ const g=gLocal();
+ const sub=2,h=dt/sub;
+ for(let s=0;s<sub;s++){
+  for(const b of balls){
+   if(b.dead)continue;
+   if(b.where.kind==='sphere')stepSphereBall(b,g,h);
+   else stepTubeBall(b,g,h);
+  }
+  solveSpherePBD();
+  solveTubePBD();
+  magnetPairs(h);
+ }
+ sphereMods(dt);
+ chemistry(dt);
+ if(gameState==='play'&&balls.every(b=>b.type!=='uma'||b.dead)){gameState='lose';onLose();}
+ winCheck(dt);
+}
+function stepSphereBall(b,g,dt){
+ const S=spheres[b.where.i],R=S.R;
+ for(let k=0;k<3;k++)b.v[k]+=(g[k]/b.mass)*dt; /* v3.1: масса (гелий m=-1 → антигравитация) */
+ const sp=Math.hypot(...b.v);
+ if(sp>VMAX){const f=VMAX/sp;for(let k=0;k<3;k++)b.v[k]*=f;}
+ for(let k=0;k<3;k++)b.p[k]+=b.v[k]*dt;
+ if(b.exitT>0)b.exitT-=dt;
+ const d=[b.p[0]-S.C[0],b.p[1]-S.C[1],b.p[2]-S.C[2]];
+ const L=Math.hypot(...d);
+ if(L>S.R-BALL_R){
+  const n=d.map(v=>v/(L||1));
+  let port=null;
+  if(b.exitT>0){port=null;}
+  else
+  for(const p of S.ports){
+   if(!p.tube)continue;
+   if(n[0]*p.dir[0]+n[1]*p.dir[1]+n[2]*p.dir[2]>AP_COS){port=p;break;}
+  }
+  if(port&&exitAllowed(b,port)){transferToTube(b,port);return;}
+  const lim=S.R-BALL_R;
+  b.p[0]=S.C[0]+n[0]*lim;b.p[1]=S.C[1]+n[1]*lim;b.p[2]=S.C[2]+n[2]*lim;
+  const vn=b.v[0]*n[0]+b.v[1]*n[1]+b.v[2]*n[2];
+  if(b.type==='explosive'&&vn>BOOM_HIT){explode(b);return;} /* v3.1: удар в стену */
+  if(vn>0)for(let k=0;k<3;k++)b.v[k]-=n[k]*vn*(1+REST);
+  const f=Math.exp(-ROLL*dt);
+  for(let k=0;k<3;k++)b.v[k]*=f;
+ }
+}
+function transferToTube(b,port){
+ const t=port.tube.ref,end=port.tube.end;
+ const tan=end===0?t.tan0:t.tanL;
+ b.where={kind:'tube',i:tubes.indexOf(t)};
+ b.u=end===0?0.004:t.L-0.004;
+ b.v1d=clamp(b.v[0]*tan[0]+b.v[1]*tan[1]+b.v[2]*tan[2],-TUBE_VMAX,TUBE_VMAX);
+}
+function stepTubeBall(b,g,dt){
+ const t=tubes[b.where.i];
+ const tan=pathTangentAt(t.pts,t.cum,clamp(b.u,0.001,t.L-0.001));
+ const a=(g[0]*tan[0]+g[1]*tan[1]+g[2]*tan[2])/b.mass; /* v3.1: масса (гелий едет вверх) */
+ const vm=TUBE_VMAX*(b.mass>1?1.5:1);                  /* v3.1: тяжёлые быстрее */
+ b.v1d=(b.v1d+a*dt)*Math.exp(-TUBE_DAMP*dt);
+ b.v1d=clamp(b.v1d,-vm,vm);
+ b.u+=b.v1d*dt;
+ /* v3.1: стеклянная перегородка в середине хрупкой трубки */
+ if(t.fragile&&!t.broken){
+  const mid=t.L/2,prev=b.u-b.v1d*dt;
+  if((prev-mid)*(b.u-mid)<0){
+   if((b.type==='metal'||b.type==='girya')&&Math.abs(b.v1d)>PANE_V){t.broken=true;S.glass();toast(T('glass_broken'));fxShards(pathPointAt(t.pts,t.cum,t.L/2));} /* v3.7: осколки */
+   else if(b.type==='explosive'&&Math.abs(b.v1d)>PANE_V){explode(b);return;}
+   else{b.u=prev<mid?mid-0.002:mid+0.002;b.v1d*=-REST;}
+  }
+ }
+ /* v3.0: закрытый шибер — шарик стоит У ЗАСЛОНКИ (плоскость клапана минус радиус),
+    а не проезжает её до поверхности сферы */
+ const VSTOP=VALVE_D+BALL_R;      /* запас от конца пути до заслонки */
+ if(b.u>=t.L-0.002){
+  if(gates[t.gateB].open){tryEnterSphere(b,t,1);return;}
+  b.u=t.L-VSTOP;b.v1d*=-REST;      /* дальний шибер закрыт — стоп у заслонки */
+ }else if(!gates[t.gateB].open&&b.u>t.L-VSTOP){
+  b.u=t.L-VSTOP;if(b.v1d>0)b.v1d*=-REST;
+ }
+ if(b.u<=0.002){
+  if(gates[t.gate].open){tryEnterSphere(b,t,0);return;}
+  b.u=VSTOP;b.v1d*=-REST;          /* ближний шибер закрыт — стоп у заслонки */
+ }else if(!gates[t.gate].open&&b.u<VSTOP){
+  b.u=VSTOP;if(b.v1d<0)b.v1d*=-REST;
+ }
+}
+function tryEnterSphere(b,t,end){
+ const si=end===0?t.aS:t.bS,S=spheres[si];
+ const dir=end===0?t.aDir:t.bDir;
+ const land=[S.C[0]+dir[0]*(S.R-BALL_R-0.008),S.C[1]+dir[1]*(S.R-BALL_R-0.008),S.C[2]+dir[2]*(S.R-BALL_R-0.008)];
+ for(const o of balls){
+  if(o===b||o.dead||o.where.kind!=='sphere'||o.where.i!==si)continue;
+  const dd=Math.hypot(o.p[0]-land[0],o.p[1]-land[1],o.p[2]-land[2]);
+  if(dd<BALL_SP*0.95){ b.u=end===0?0.023:t.L-0.023;b.v1d=end===0?-0.05:0.05;return; } /* v3.1: занято — микро-отступ и повтор (порт освободится — выйдем) */
+ }
+ const tanOut=end===0?t.tan0.map(v=>-v):t.tanL; /* касательная, направленная В сферу */
+ b.where={kind:'sphere',i:si};
+ b.exitT=0.35; /* v3.1: свежевышедший не проваливается обратно в трубку */
+ b.p=land.slice();
+ const sp=Math.min(Math.abs(b.v1d)*0.5,0.5); /* v3.1: клапан-демпфер — мягкий вход в сферу (взрывчатку и Уму не подставляем под удар) */
+ const gl=gLocal(),gn=Math.hypot(gl[0],gl[1],gl[2])||1; /* v3.1: добавка вдоль стока — вышедший УБЕГАЕТ от порта, не создаёт пробку */
+ b.v=[tanOut[0]*sp-dir[0]*0.22+gl[0]/gn*0.15,tanOut[1]*sp-dir[1]*0.22+gl[1]/gn*0.15,tanOut[2]*sp-dir[2]*0.22+gl[2]/gn*0.15];
+}
+function solveSpherePBD(){
+ for(let si=0;si<spheres.length;si++){
+  const list=balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===si);
+  for(let it=0;it<3;it++){
+   for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+    const a=list[i],c=list[j];
+    let d=[c.p[0]-a.p[0],c.p[1]-a.p[1],c.p[2]-a.p[2]];
+    let L=Math.hypot(...d);
+    if(L<BALL_SP){
+     if(L<1e-6){d=[0.01,0,0.01];L=Math.hypot(...d);}
+     const n=d.map(v=>v/L),push=(BALL_SP-L)/2;
+     for(let k=0;k<3;k++){a.p[k]-=n[k]*push;c.p[k]+=n[k]*push;}
+     const rv=[c.v[0]-a.v[0],c.v[1]-a.v[1],c.v[2]-a.v[2]];
+     const vn=rv[0]*n[0]+rv[1]*n[1]+rv[2]*n[2];
+     if(vn<0){
+      /* v3.1: губит СКОРОСТЬ МЕТАЛЛА (наезд на Уму/стекло), а не относительная —
+         иначе Ума гибнет, просто упав рядом со стоящим металлом */
+      const mt=a.type==='metal'?a:(c.type==='metal'?c:null);
+      if(mt){
+       const sp=Math.hypot(mt.v[0],mt.v[1],mt.v[2]);
+       if((a.type==='uma'||c.type==='uma')&&sp>METAL_KILL){const u=a.type==='uma'?a:c;u.dead=true;}
+       if((a.type==='glass'||c.type==='glass')&&sp>GLASS_KILL){const g2=a.type==='glass'?a:c;g2.dead=true;S.glass();}
+      }
+      for(let k=0;k<3;k++){a.v[k]+=n[k]*vn*0.5;c.v[k]-=n[k]*vn*0.5;}
+     }
+    }
+   }
+  }
+ }
+}
+function solveTubePBD(){
+ const VSTOP=VALVE_D+BALL_R;
+ for(let ti=0;ti<tubes.length;ti++){
+  const t=tubes[ti];
+  /* v3.0: границы трубки — открытые концы или заслонки закрытых шиберов */
+  const lo=gates[t.gate].open?0.003:VSTOP;
+  const hi=gates[t.gateB].open?t.L-0.003:t.L-VSTOP;
+  const list=balls.filter(b=>!b.dead&&b.where.kind==='tube'&&b.where.i===ti).sort((a,b)=>a.u-b.u);
+  for(let i=0;i+1<list.length;i++){
+   const a=list[i],c=list[i+1];
+   if(c.u-a.u<BALL_SP){
+    const push=(BALL_SP-(c.u-a.u))/2;
+    a.u=Math.max(lo,a.u-push);
+    c.u=Math.min(hi,c.u+push);
+    if(a.v1d>0&&c.v1d<a.v1d){const m=(a.v1d+c.v1d)/2;a.v1d=m;c.v1d=m;}
+   }
+  }
+ }
+}
+function chemistry(dt){
+ /* заражение воды и гибель Умы — внутри одной сферы или одной трубки */
+ const groups=new Map();
+ for(const b of balls){
+  if(b.dead)continue;
+  const key=b.where.kind+':'+b.where.i;
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(b);
+ }
+ let infected=false;
+ let salted=false,keyLost=false;
+ groups.forEach(list=>{
+  const acids=list.filter(b=>b.type==='acid');
+  if(!acids.length){
+   for(const b of list)if(b.type!=='water'&&b.type!=='uma')b.hurtT=Math.max(0,(b.hurtT||0)-dt*2);
+   return;
+  }
+  for(const b of list){
+   if(b.dead)continue;
+   if(b.type==='acid')continue;
+   let touch=false;
+   for(const a of acids){
+    if(a.dead)continue;
+    let d;
+    if(b.where.kind==='sphere')d=Math.hypot(a.p[0]-b.p[0],a.p[1]-b.p[1],a.p[2]-b.p[2]);
+    else d=Math.abs(a.u-b.u);
+    if(d<ACID_D){touch=true;break;}
+   }
+   if(b.type==='water'||b.type==='uma'){
+    if(touch)b.hurtT+=dt;else b.hurtT=Math.max(0,b.hurtT-dt*2);
+    if(b.type==='water'&&b.hurtT>1){b.type='acid';b.mass=1;b.hurtT=0;infected=true;}
+    if(b.type==='uma'&&b.hurtT>UMA_HURT){b.dead=true;}
+   }else if(b.type==='alkali'){ /* v3.1: щёлочь нейтрализует кислоту → соль */
+    if(touch){b.hurtT+=dt;if(b.hurtT>1){b.type='salt';b.mass=1;b.hurtT=0;salted=true;fxFlash(b.p);
+     const a=acids.find(x=>!x.dead);if(a){a.type='salt';a.mass=1;}}}
+    else b.hurtT=Math.max(0,b.hurtT-dt*2);
+   }else if(b.type==='key'){ /* v3.1: кислота растворяет ключ */
+    if(touch){b.hurtT+=dt;if(b.hurtT>1){b.dead=true;keyLost=true;}}
+    else b.hurtT=Math.max(0,b.hurtT-dt*2);
+   }else if(b.type==='explosive'){ /* v3.1: кислота детонирует взрывчатку */
+    if(touch){explode(b);return;}
+   }
+  }
+ });
+ if(infected){S.hiss();toast(T('infect'));}
+ if(salted){S.bubble();toast(T('neutralized'));}
+ if(keyLost){S.hiss();toast(T('key_lost'));}
+}
+/* ================= v3.1: ВЗРЫВ / МАГНИТЫ / МОДЫ СФЕР ==================== */
+function ballCenter(b){
+ if(b.where.kind==='sphere')return b.p.slice();
+ const t=tubes[b.where.i];return pathPointAt(t.pts,t.cum,clamp(b.u,0,t.L));
+}
+function explode(b){
+ if(b.dead)return;
+ b.dead=true;S.explode();
+ const p=ballCenter(b);
+ for(const o of balls){
+  if(o.dead||o===b)continue;
+  const op=ballCenter(o);
+  const d=Math.hypot(op[0]-p[0],op[1]-p[1],op[2]-p[2]);
+  if(o.type==='uma'&&d<BOOM_KILL){o.dead=true;continue;}
+  if(o.type==='glass'&&d<BOOM_KILL){o.dead=true;S.glass();continue;}
+  if(o.type==='explosive'&&d<BOOM_KILL+0.08){explode(o);continue;}
+  if(d<BOOM_PUSH&&o.where.kind==='sphere'){
+   const dir=d>1e-4?[(op[0]-p[0])/d,(op[1]-p[1])/d,(op[2]-p[2])/d]:[0,1,0];
+   const f=1.6*(1-d/BOOM_PUSH);
+   for(let k=0;k<3;k++)o.v[k]+=dir[k]*f;
+  }
+ }
+ for(const t of tubes){
+  if(!t.fragile||t.broken)continue;
+  for(const u of[t.L*0.25,t.L*0.5,t.L*0.75]){
+   const tp=pathPointAt(t.pts,t.cum,u);
+   if(Math.hypot(tp[0]-p[0],tp[1]-p[1],tp[2]-p[2])<0.28){t.broken=true;S.glass();toast(T('glass_broken'));break;}
+  }
+ }
+}
+function magnetPairs(dt){ /* v3.1: магниты — в пределах сферы */
+ for(let si=0;si<spheres.length;si++){
+  const list=balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===si);
+  for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+   const a=list[i],c=list[j];
+   const isM=b=>b.type==='magnet+'||b.type==='magnet-';
+   let sgn=0;
+   if(isM(a)&&c.type==='metal')sgn=1;
+   else if(isM(c)&&a.type==='metal')sgn=1;
+   else if(isM(a)&&isM(c))sgn=(a.charge===c.charge)?-1:1;
+   if(!sgn)continue;
+   const dx=c.p[0]-a.p[0],dy=c.p[1]-a.p[1],dz=c.p[2]-a.p[2];
+   const d=Math.hypot(dx,dy,dz);
+   if(d<0.07||d>MAG_RANGE)continue;
+   const F=clamp(sgn*MAG_K/(d*d),-2.2,2.2),inv=1/d;
+   for(let k=0;k<3;k++){
+    const dir=[dx,dy,dz][k]*inv;
+    a.v[k]+=dir*(F/a.mass)*dt;
+    c.v[k]-=dir*(F/c.mass)*dt;
+   }
+  }
+ }
+}
+const SFXbubble=()=>tone(520,.06,'sine',.06,860);
+function sphereMods(dt){ /* v3.1: кислотная ванна, жар/холод, весы, замок, датчик */
+ for(let si=0;si<spheres.length;si++){
+  const SP=spheres[si];
+  const inside=()=>balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===si);
+  if(SP.kind==='acid'){
+   const list=inside();
+   if(list.some(b=>b.type==='alkali')){
+    SP.neutT=(SP.neutT||0)+dt;
+    if(SP.neutT>1){
+     SP.kind='normal';fxFlash(SP.C);
+     for(const b of list)if(b.type==='acid'||b.type==='alkali'){b.type='salt';b.mass=1;}
+     SFXbubble();toast(T('neutralized'));
+    }
+   }else SP.neutT=0;
+   for(const b of inside()){
+    if(b.type==='water'||b.type==='uma'||b.type==='key'||b.type==='explosive'){
+     b.acidT=(b.acidT||0)+dt;
+     if(b.acidT>1){
+      if(b.type==='water'){b.type='acid';b.mass=1;toast(T('infect'));}
+      else if(b.type==='uma'){b.dead=true;}
+      else if(b.type==='key'){b.dead=true;toast(T('key_lost'));}
+      else if(b.type==='explosive'){explode(b);}
+      b.acidT=0;
+     }
+    }else b.acidT=0;
+   }
+  }
+  if(SP.mods&&SP.mods.hot){
+   for(const b of inside()){
+    if(b.type==='ice'){b.freezeT+=dt;if(b.freezeT>2){b.type='water';b.mass=1;b.freezeT=0;SFXbubble();}}
+    else b.freezeT=0;
+   }
+  }
+  if(SP.mods&&SP.mods.cold){
+   for(const b of inside()){
+    if(b.type==='water'){b.freezeT+=dt;if(b.freezeT>2){b.type='ice';b.mass=1.5;b.freezeT=0;}}
+    else b.freezeT=0;
+   }
+  }
+  if(SP.mods&&SP.mods.scale&&!SP.mods.scale.latched){
+   const w=inside().reduce((sm,b)=>sm+Math.max(0,b.mass),0);
+   if(w>=SP.mods.scale.threshold){
+    SP.mods.scale.latched=true;SP.mods.scale.latchT=0.7;fxFlash(SP.C); /* v3.7: чаша опускается, флажок взлетает */
+    if(gates[SP.mods.scale.targetGate])gates[SP.mods.scale.targetGate].open=true;
+    S.latch();toast(T('latched'));
+   }
+  }
+  if(SP.mods&&SP.mods.lock&&!SP.mods.lock.latched){
+   const key=inside().find(b=>b.type==='key'&&b.keySymbol===SP.mods.lock.symbol);
+   if(key){
+    SP.mods.lock.latched=true;
+    if(gates[SP.mods.lock.targetGate])gates[SP.mods.lock.targetGate].open=true;
+    key.dead=true;key.inLock=si;
+    S.latch();toast(T('unlocked'));
+   }
+  }
+  if(SP.mods&&SP.mods.sensor&&!SP.mods.sensor.latched){
+   if(inside().some(b=>b.type===SP.mods.sensor.ballType)){
+    SP.mods.sensor.latched=true;
+    if(gates[SP.mods.sensor.targetGate])gates[SP.mods.sensor.targetGate].open=true;
+    S.latch();toast(T('latched'));
+   }
+  }
+ }
+}
+function winCheck(dt){
+ if(gameState!=='play')return;
+ const u=balls.find(b=>b.type==='uma'&&!b.dead);
+ if(!u)return;
+ const fIdx=spheres.findIndex(s=>s.kind==='exit');
+ if(fIdx<0)return;
+ if(u.where.kind!=='sphere'||u.where.i!==fIdx){winT=Math.max(0,winT-dt*2);return;}
+ const L=LEVELS[lvIdx];
+ const inside=balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===fIdx);
+ let ok=true;
+ for(const it of (L.win&&L.win.items)||[{type:'water',count:1}]){
+  if(inside.filter(b=>b.type===it.type).length<(it.count||1)){ok=false;break;}
+ }
+ if(ok&&L.win&&L.win.needLock){
+  const ls=spheres.find(sp=>sp.mods&&sp.mods.lock);
+  if(!ls||!ls.mods.lock.latched)ok=false;
+ }
+ if(ok)winT+=dt;else winT=Math.max(0,winT-dt*2);
+ if(winT>0.6){gameState='win';onWin();}
+}
+
+/* ================= КАМЕРА И РЕНДЕР ==================================== */
+const cv=document.getElementById('gl'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+const FOV=45*Math.PI/180;
+const MOB=(typeof matchMedia==='function')&&matchMedia('(pointer:coarse)').matches; /* v3.2: телефон — крупнее надписи в канвасе */
+const cam={az:0,el:0.92,dist:4.1,targetY:0.58,min:2.6,max:16}; /* v3.2: max 16 — широкие уровни влезают на телефон */ /* v2.7: вид строго по осям — «лестница»: левая сфера слева, правая справа, стартовая сверху */
+const STRUCT_Y=0.62;
+let MVP=mI();
+function mvp(){return mMul(mPersp(FOV,W/H,0.1,60),
+ mMul(mTrans(0,0,-cam.dist),mMul(mRotX(cam.el),mMul(mRotY(cam.az),mTrans(0,-cam.targetY,0)))));}
+/* v3.1: вписать УРОВЕНЬ в кадр (рамки из buildLevel) */
+function fitCam(){
+ if(W<2||H<2)return;
+ const asp=W/H,hfov=2*Math.atan(Math.tan(FOV/2)*asp);
+ const vy=Math.max(LVB.y1+STRUCT_Y-cam.targetY,cam.targetY-(LVB.y0+STRUCT_Y))+0.32;
+ const pad=MOB?0.95:0.9; /* v3.2: на телефоне вписываем плотнее */
+ const need=Math.max(3.2,LVB.x/(Math.tan(hfov/2)*pad),LVB.z/(Math.tan(FOV/2)*pad),vy/(Math.tan(FOV/2)*pad));
+ cam.dist=clamp(need,cam.min,cam.max);
+}
+function worldPoint(p){const v=qRotateVec(rot.q,p);return [v[0],v[1]+STRUCT_Y,v[2]];}
+function proj(p){const v=tP(MVP,p);return [(v[0]*.5+.5)*W,(1-(v[1]*.5+.5))*H,v[3]];}
+function ppmAt(w){return (H/2)*(1/Math.tan(FOV/2))/Math.max(0.3,w);}
+function resize(){
+ DPR=Math.min(window.devicePixelRatio||1,(matchMedia('(pointer:coarse)').matches)?1.5:2);
+ W=cv.clientWidth||innerWidth;H=cv.clientHeight||innerHeight;
+ if(W<2||H<2){W=innerWidth;H=innerHeight;}
+ cv.width=Math.max(2,W*DPR);cv.height=Math.max(2,H*DPR);
+ fitCam();
+ MVP=mvp();
+}
+function setZoom(d){cam.dist=clamp(d,cam.min,cam.max);}
+function ballColor(t){
+ if(t==='water')return ['#5ec8f2','#1e7fc0'];
+ if(t==='acid')return ['#8cf29a','#2fae4a'];
+ if(t==='uma')return ['#ffd257','#e8a020'];
+ if(t==='alkali')return ['#f2a0c8','#c0508a'];
+ if(t==='metal')return ['#c0c8d0','#606870'];
+ if(t==='helium')return ['#f0f8ff','#c0d8e8'];
+ if(t==='glass')return ['#e8f8ff','#a0c8d8'];
+ if(t==='magnet+')return ['#ff8080','#c02020'];
+ if(t==='magnet-')return ['#8080ff','#2020c0'];
+ if(t==='ice')return ['#c0f0ff','#60b0d0'];
+ if(t==='explosive')return ['#585860','#a02020'];
+ if(t==='girya')return ['#707880','#202830'];
+ if(t==='key')return ['#ffd860','#c09020'];
+ if(t==='salt')return ['#c0c0c0','#808080'];
+ return ['#cfd8dc','#90a4ae'];
+}
+function drawBallAt(s,r,b,faceDir){
+ const g=ctx.createRadialGradient(s[0]-r*.35,s[1]-r*.35,r*.15,s[0],s[1],r);
+ const [c1,c2]=ballColor(b.type);
+ g.addColorStop(0,c1);g.addColorStop(1,c2);
+ ctx.beginPath();ctx.arc(s[0],s[1],r,0,6.2832);
+ ctx.fillStyle=g;ctx.fill();
+ ctx.lineWidth=Math.max(1,r*.14);
+ ctx.strokeStyle='rgba(255,255,255,.5)';
+ ctx.stroke();
+ if(b.type==='uma'){
+  const blink=b.blink>0&&Math.floor(b.blink*8)%2===0;
+  const ex=faceDir?faceDir[0]*r*.3:0,ey=faceDir?faceDir[1]*r*.3:-r*.1;
+  ctx.fillStyle='#173042';
+  if(!blink){
+   ctx.beginPath();ctx.arc(s[0]-r*.28+ex,s[1]-r*.15+ey,r*.14,0,6.2832);ctx.fill();
+   ctx.beginPath();ctx.arc(s[0]+r*.28+ex,s[1]-r*.15+ey,r*.14,0,6.2832);ctx.fill();
+  }else{
+   ctx.fillRect(s[0]-r*.4+ex,s[1]-r*.17+ey,r*.26,r*.07);
+   ctx.fillRect(s[0]+r*.15+ex,s[1]-r*.17+ey,r*.26,r*.07);
+  }
+ }
+ /* v3.1: глифы новых типов */
+ if(b.type==='magnet+'||b.type==='magnet-'){
+  ctx.fillStyle='#fff';ctx.font='900 '+Math.max(MOB?14:8,r*(MOB?1.15:0.95))+'px Segoe UI,Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(b.type==='magnet+'?'\u002B':'\u2212',s[0],s[1]+r*0.06);
+ }else if(b.type==='key'){
+  ctx.fillStyle='#5a3c00';ctx.font='900 '+Math.max(MOB?14:8,r*(MOB?1.1:0.9))+'px Segoe UI,Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(b.keySymbol||'★',s[0],s[1]+r*0.06);
+ }else if(b.type==='explosive'){
+  ctx.strokeStyle='#ff5040';ctx.lineWidth=Math.max(1.5,r*0.22);
+  ctx.beginPath();ctx.moveTo(s[0]-r*0.55,s[1]);ctx.lineTo(s[0]+r*0.55,s[1]);ctx.stroke();
+ }else if(b.type==='helium'){
+  ctx.strokeStyle='rgba(70,110,140,.8)';ctx.lineWidth=Math.max(1.2,r*0.18);
+  ctx.beginPath();ctx.moveTo(s[0],s[1]+r*0.45);ctx.lineTo(s[0],s[1]-r*0.45);
+  ctx.moveTo(s[0]-r*0.3,s[1]-r*0.15);ctx.lineTo(s[0],s[1]-r*0.45);ctx.lineTo(s[0]+r*0.3,s[1]-r*0.15);
+  ctx.stroke();
+ }else if(b.type==='girya'){
+  ctx.strokeStyle='rgba(200,210,220,.5)';ctx.lineWidth=Math.max(1.5,r*0.2);
+  ctx.beginPath();ctx.arc(s[0],s[1]-r*0.25,r*0.38,Math.PI,0);ctx.stroke();
+ }
+ if(b.hurtT>0){
+  ctx.beginPath();ctx.arc(s[0],s[1],r*1.25,0,6.2832);
+  ctx.strokeStyle='rgba(255,80,80,'+(0.4+0.3*Math.sin(modsT()/90))+')';
+  ctx.lineWidth=2;ctx.stroke();
+ }
+}
+function drawRingW(pw,T,S,r,stroke,width){
+ /* кольцо в мировых координатах (для рёбер трубки) */
+ const D=cross3(T,S),pts=[];
+ for(let i=0;i<=30;i++){const a=i/30*Math.PI*2,ca=Math.cos(a)*r,sa=Math.sin(a)*r;
+  pts.push([pw[0]+S[0]*ca+D[0]*sa,pw[1]+S[1]*ca+D[1]*sa,pw[2]+S[2]*ca+D[2]*sa]);}
+ const q=pts.map(p=>proj(p));if(q.some(v=>v[2]<=0))return;
+ ctx.beginPath();ctx.moveTo(q[0][0],q[0][1]);for(let i=1;i<q.length;i++)ctx.lineTo(q[i][0],q[i][1]);
+ ctx.strokeStyle=stroke;ctx.lineWidth=width||2;ctx.stroke();
+}
+function drawTube(t){
+ /* v2.2: ПРОЗРАЧНАЯ ИЗОГНУТАЯ 3D-трубка. Путь: сфера → сквозь клапан → дуга →
+    сквозь клапан → сфера. Силуэт цилиндра строится в 3D: боковое направление =
+    касательная × направление на камеру, поэтому трубка честно поворачивается
+    вместе с конструкцией. Никаких плоских серых штрихов. */
+ const n=t.pts.length,cp=camPos();
+ const wp=[],tw=[],sd=[];
+ for(let i=0;i<n;i++){
+  const tt=pathTangentAt(t.pts,t.cum,Math.min(t.cum[i],t.L-0.001));
+  const T=qRotateVec(rot.q,tt);
+  const P=worldPoint(t.pts[i]);
+  const V=[cp[0]-P[0],cp[1]-P[1],cp[2]-P[2]];
+  let side=cross3(T,V);const sl=Math.hypot(...side);
+  side=sl>1e-4?side.map(v=>v/sl):[0,1,0.001];
+  wp.push(P);tw.push(T);sd.push(side);
+ }
+ const Lp=[],Rp=[];
+ for(let i=0;i<n;i++){
+  Lp.push(proj([wp[i][0]+sd[i][0]*PIPE_R,wp[i][1]+sd[i][1]*PIPE_R,wp[i][2]+sd[i][2]*PIPE_R]));
+  Rp.push(proj([wp[i][0]-sd[i][0]*PIPE_R,wp[i][1]-sd[i][1]*PIPE_R,wp[i][2]-sd[i][2]*PIPE_R]));
+ }
+ /* стеклянный корпус — полоса силуэта цилиндра */
+ ctx.beginPath();
+ Lp.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+ for(let i=n-1;i>=0;i--)ctx.lineTo(Rp[i][0],Rp[i][1]);
+ ctx.closePath();
+ ctx.fillStyle='rgba(165,215,240,.14)';ctx.fill();
+ ctx.lineWidth=1.2;ctx.strokeStyle='rgba(150,200,225,.55)';ctx.lineJoin='round';ctx.stroke();
+ /* блик вдоль стенки */
+ ctx.beginPath();
+ for(let i=0;i<n;i++){
+  const p=proj([wp[i][0]+sd[i][0]*PIPE_R*.45,wp[i][1]+sd[i][1]*PIPE_R*.45,wp[i][2]+sd[i][2]*PIPE_R*.45]);
+  i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);
+ }
+ ctx.lineWidth=1;ctx.strokeStyle='rgba(255,255,255,.35)';ctx.stroke();
+ /* шарики — видны сквозь стекло трубки */
+ for(const b of balls){
+  if(b.dead||b.where.kind!=='tube'||b.where.i!==tubes.indexOf(t))continue;
+  const q=pathPointAt(t.pts,t.cum,b.u);
+  const s=proj(worldPoint(q));
+  drawBallAt(s,Math.max(2.5,BALL_R*ppmAt(s[2])),b,null);
+ }
+ /* лёгкие рёбра на дуге (между клапанами) — шарик «за стеклом» */
+ for(let i=2;i<n-2;i+=3){
+  if(i<=t.ia||i>=t.ib)continue;
+  drawRingW(wp[i],tw[i],sd[i],PIPE_R*.98,'rgba(190,228,244,.30)',1);
+ }
+ /* кольца у внешних фланцев клапанов */
+ drawRingW(wp[t.ia],tw[t.ia],sd[t.ia],PIPE_R*1.04,'rgba(241,252,255,.9)',1.8);
+ drawRingW(wp[t.ib],tw[t.ib],sd[t.ib],PIPE_R*1.04,'rgba(241,252,255,.9)',1.8);
+ /* v3.1: стеклянная перегородка в середине хрупкой трубки */
+ if(t.fragile){
+  const mi=Math.floor(n/2);
+  if(!t.broken){
+   drawRingW(wp[mi],tw[mi],sd[mi],PIPE_R*1.05,'rgba(240,252,255,.95)',2.4);
+   drawRingW(wp[mi],tw[mi],sd[mi],PIPE_R*0.55,'rgba(200,235,250,.85)',1.5);
+   drawRingW(wp[mi],tw[mi],sd[mi],PIPE_R*0.8,'rgba(255,255,255,.5)',1);
+  }else{
+   for(const off of[-0.07,0,0.07]){
+    const pp=[wp[mi][0]+tw[mi][0]*off,wp[mi][1]+tw[mi][1]*off,wp[mi][2]+tw[mi][2]*off];
+    drawPoly3([
+     [pp[0]+sd[mi][0]*PIPE_R*0.85,pp[1]+sd[mi][1]*PIPE_R*0.85,pp[2]+sd[mi][2]*PIPE_R*0.85],
+     [pp[0]+sd[mi][0]*PIPE_R*0.2,pp[1]+sd[mi][1]*PIPE_R*0.2,pp[2]+sd[mi][2]*PIPE_R*0.2],
+     [pp[0]+tw[mi][0]*0.05,pp[1]+tw[mi][1]*0.05,pp[2]+tw[mi][2]*0.05]],
+     'rgba(230,246,252,.85)','rgba(150,200,225,.9)',1);
+   }
+  }
+ }
+}
+function drawSphere(S,si){
+ const cw=worldPoint(S.C),s=proj(cw),rp=S.R*ppmAt(s[2]);
+ const dark=document.documentElement.dataset.theme==='dark';
+ /* стекло */
+ const g=ctx.createRadialGradient(s[0]-rp*.3,s[1]-rp*.35,rp*.1,s[0],s[1],rp);
+ if(S.kind==='acid'){g.addColorStop(0,'rgba(140,242,154,.10)');g.addColorStop(1,'rgba(47,174,74,.05)');}
+ else if(S.kind==='exit'){g.addColorStop(0,'rgba(255,224,130,.12)');g.addColorStop(1,'rgba(230,180,60,.05)');}
+ else if(S.kind==='hot'){g.addColorStop(0,'rgba(255,170,80,.16)');g.addColorStop(1,'rgba(220,90,30,.07)');}
+ else if(S.kind==='cold'){g.addColorStop(0,'rgba(150,225,255,.16)');g.addColorStop(1,'rgba(70,150,220,.08)');}
+ else if(S.kind==='vault'){g.addColorStop(0,'rgba(200,220,240,.12)');g.addColorStop(1,'rgba(90,110,150,.06)');}
+ else {g.addColorStop(0,'rgba(160,220,240,.10)');g.addColorStop(1,'rgba(60,130,160,.04)');}
+ ctx.beginPath();ctx.arc(s[0],s[1],rp,0,6.2832);ctx.fillStyle=g;ctx.fill();
+ /* v3.6: ОБЪЁМ — блик сверху-слева, стеклянная плотность к нижне-правому краю */
+ const gv=ctx.createRadialGradient(s[0]-rp*.42,s[1]-rp*.48,rp*.08,s[0]+rp*.14,s[1]+rp*.2,rp*1.04);
+ gv.addColorStop(0,'rgba(255,255,255,.26)');
+ gv.addColorStop(.34,'rgba(255,255,255,.07)');
+ gv.addColorStop(.72,'rgba(255,255,255,0)');
+ gv.addColorStop(1,dark?'rgba(0,20,35,.30)':'rgba(22,62,92,.20)');
+ ctx.beginPath();ctx.arc(s[0],s[1],rp,0,6.2832);ctx.fillStyle=gv;ctx.fill();
+ /* v3.6: внутренний обод — «толщина стекла» снизу-справа */
+ ctx.beginPath();ctx.arc(s[0],s[1],rp*.955,.55,1.8);
+ ctx.lineWidth=Math.max(2,rp*.07);ctx.strokeStyle=dark?'rgba(0,25,40,.26)':'rgba(90,140,170,.20)';ctx.stroke();
+ /* «клетка» — три больших круга */
+ ctx.save();
+ ctx.beginPath();ctx.arc(s[0],s[1],rp*0.99,0,6.2832);ctx.clip();
+ ctx.strokeStyle=dark?'rgba(127,216,239,.10)':'rgba(23,90,112,.10)';
+ ctx.lineWidth=1;
+ for(const [u,v] of [[[1,0,0],[0,1,0]],[[0,1,0],[0,0,1]],[[1,0,0],[0,0,1]]]){
+  ctx.beginPath();
+  for(let k=0;k<=24;k++){
+   const a=k/24*6.2832;
+   const p=[S.C[0]+S.R*.985*(Math.cos(a)*u[0]+Math.sin(a)*v[0]),
+            S.C[1]+S.R*.985*(Math.cos(a)*u[1]+Math.sin(a)*v[1]),
+            S.C[2]+S.R*.985*(Math.cos(a)*u[2]+Math.sin(a)*v[2])];
+   const sp=proj(worldPoint(p));
+   k?ctx.lineTo(sp[0],sp[1]):ctx.moveTo(sp[0],sp[1]);
+  }
+  ctx.stroke();
+ }
+ ctx.restore();
+ /* шарики внутри — БЕЗ клипа: у порта шарик видно и в момент выхода в штуцер */
+ const inner=balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===si)
+  .map(b=>({b,s:proj(worldPoint(b.p))}))
+  .sort((a,b)=>b.s[2]-a.s[2]);
+ for(const it of inner){
+  const r=Math.max(2.5,BALL_R*ppmAt(it.s[2]));
+  let face=null;
+  if(it.b.type==='uma'){
+   const vv=Math.hypot(...it.b.v)>0.03?it.b.v:[0,-1,0];
+   const vw=qRotateVec(rot.q,vv);
+   face=[vw[0],-vw[1]];
+  }
+  drawBallAt(it.s,r,it.b,face);
+ }
+ /* обод */
+ ctx.beginPath();ctx.arc(s[0],s[1],rp,0,6.2832);
+ ctx.lineWidth=2.4;ctx.strokeStyle=dark?'rgba(127,216,239,.8)':'rgba(60,120,150,.75)';ctx.stroke();
+ ctx.beginPath();ctx.arc(s[0],s[1],rp+3,0,6.2832);
+ ctx.lineWidth=5;ctx.strokeStyle='rgba(120,200,235,.10)';ctx.stroke();
+ ctx.beginPath();ctx.arc(s[0],s[1],rp*.86,-2.4,-1.2);
+ ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.45)';ctx.stroke();
+ /* звезда на спасательной сфере */
+ if(S.kind==='exit'){
+  ctx.save();ctx.translate(s[0],s[1]-rp-14);
+  ctx.fillStyle='#e8b93c';ctx.font='bold '+(MOB?24:18)+'px Segoe UI,Arial';
+  ctx.textAlign='center';ctx.fillText('★',0,0);ctx.restore();
+ }
+ /* v3.1: жар — свечение; холод — иней */
+ if(S.kind==='hot'){
+  ctx.beginPath();ctx.arc(s[0],s[1],rp+6,0,6.2832);
+  ctx.strokeStyle='rgba(255,140,60,.35)';ctx.lineWidth=5;ctx.stroke();
+ }
+ if(S.kind==='cold'){
+  ctx.fillStyle='rgba(230,250,255,.8)';
+  for(let k=0;k<7;k++){const a=k*0.9+si,rr=rp*0.93;
+   ctx.beginPath();ctx.arc(s[0]+Math.cos(a)*rr,s[1]+Math.sin(a)*rr,1.6,0,6.2832);ctx.fill();}
+ }
+ /* v3.1: весовая — чаша; замковая — скважина; защёлки — флажок */
+ if(S.kind==='scale'){
+  const ltc=(S.mods&&S.mods.scale)?(S.mods.scale.latchT||0):0; /* v3.7: чаша плавно опускается при защёлкивании */
+  const drop=(S.mods&&S.mods.scale&&S.mods.scale.latched)?(ltc>0?Math.sin((0.7-ltc)/0.7*Math.PI/2):1)*rp*0.10:0;
+  ctx.save();ctx.strokeStyle='rgba(70,110,140,.75)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(s[0],s[1]+rp*0.62+drop,rp*0.52,rp*0.2,0,0,Math.PI);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(s[0]-rp*0.52,s[1]+rp*0.62+drop);ctx.lineTo(s[0]+rp*0.52,s[1]+rp*0.62+drop);ctx.stroke();
+  ctx.restore();
+ }
+ if(S.mods&&S.mods.lock){
+  ctx.save();ctx.fillStyle='rgba(40,60,80,.85)';
+  ctx.beginPath();ctx.arc(s[0],s[1]-rp*0.12,rp*0.14,0,6.2832);ctx.fill();
+  ctx.fillRect(s[0]-rp*0.045,s[1]-rp*0.12,rp*0.09,rp*0.3);
+  ctx.fillStyle='#ffd860';ctx.font='bold '+Math.max(MOB?14:10,rp*(MOB?0.28:0.22))+'px Segoe UI,Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(S.mods.lock.symbol,s[0],s[1]+rp*0.42);
+  ctx.restore();
+ }
+ let flag=null;
+ if(S.mods&&S.mods.scale)flag=S.mods.scale.latched;
+ if(S.mods&&S.mods.lock)flag=(flag===null)?S.mods.lock.latched:flag;
+ if(S.mods&&S.mods.sensor)flag=(flag===null)?S.mods.sensor.latched:flag;
+ if(flag!==null){
+  const fx=s[0]+rp*0.72,fy=s[1]-rp*0.72;
+  const lt2=(S.mods&&S.mods.scale&&S.mods.scale.latchT>0)?S.mods.scale.latchT:0; /* v3.7: флажок поворачивается вверх */
+  ctx.save();
+  ctx.strokeStyle='rgba(70,110,140,.8)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(fx,fy-14);ctx.stroke();
+  ctx.translate(fx,fy-14);
+  if(lt2>0)ctx.rotate((1-lt2/0.7)*Math.PI/2);
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(11,3.5);ctx.lineTo(0,7);ctx.closePath();
+  ctx.fillStyle=flag?'#24bd78':'#ff6963';ctx.fill();
+  ctx.restore();
+ }
+ /* вставленный ключ в замке */
+ if(S.mods&&S.mods.lock&&S.mods.lock.latched){
+  const kb=balls.find(b=>b.dead&&b.inLock===si);
+  if(kb){ctx.fillStyle='#ffd860';ctx.font='bold '+Math.max(MOB?14:11,rp*(MOB?0.28:0.24))+'px Segoe UI,Arial';
+   ctx.textAlign='center';ctx.textBaseline='middle';
+   ctx.fillText(kb.keySymbol||'★',s[0],s[1]-rp*0.4);}
+ }
+}
+/* позиция камеры в мире: target + dist·(−cos el·sin az, sin el, cos el·cos az) */
+function camPos(){
+ const ce=Math.cos(cam.el),se=Math.sin(cam.el),ca=Math.cos(cam.az),sa=Math.sin(cam.az);
+ return [-cam.dist*ce*sa,cam.targetY+cam.dist*se,cam.dist*ce*ca];
+}
+function normalize3(v){const l=Math.hypot(...v)||1;return v.map(x=>x/l);}
+/* v2.1: клапаны-шиберы на КАЖДОМ стыке «сфера–трубка» — 3D-заслонка, портирована из v1.2:
+   (сфера) − (клапан) − (трубка) − (клапан) − (сфера).
+   Корпус — прозрачная коробка (6 граней, художественная сортировка по глубине),
+   сквозь него виден канал и движение шарика; красная задвижка при открытии
+   уезжает вверх в крышку, шток с рукояткой зеленеет. Фланцы-кольца по краям,
+   буква шибера — над крышкой. Всё в локальном базисе трубки (A — ось, S — вверх, D — бок). */
+function add3(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function mul3(a,k){return[a[0]*k,a[1]*k,a[2]*k];}
+function dot3(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function drawPoly3(points,fill,stroke,width){
+ const q=points.map(p=>proj(worldPoint(p)));if(q.some(v=>!Number.isFinite(v[0])||v[2]<=0))return;
+ ctx.beginPath();ctx.moveTo(q[0][0],q[0][1]);for(let i=1;i<q.length;i++)ctx.lineTo(q[i][0],q[i][1]);ctx.closePath();
+ if(fill){ctx.fillStyle=fill;ctx.fill();}
+ if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width||1;ctx.lineJoin='round';ctx.stroke();}
+}
+function box3Faces(c,A,S,D,ha,hs,hd){
+ const v=(x,y,z)=>add3(c,add3(mul3(A,x*ha),add3(mul3(S,y*hs),mul3(D,z*hd))));
+ return [
+  [v(-1,-1,-1),v(-1,1,-1),v(-1,1,1),v(-1,-1,1)],
+  [v(1,-1,-1),v(1,-1,1),v(1,1,1),v(1,1,-1)],
+  [v(-1,-1,-1),v(-1,-1,1),v(1,-1,1),v(1,-1,-1)],
+  [v(-1,1,-1),v(1,1,-1),v(1,1,1),v(-1,1,1)],
+  [v(-1,-1,-1),v(1,-1,-1),v(1,1,-1),v(-1,1,-1)],
+  [v(-1,-1,1),v(-1,1,1),v(1,1,1),v(1,-1,1)]
+ ];
+}
+function drawBox3(c,A,S,D,ha,hs,hd,colors,stroke){
+ const faces=box3Faces(c,A,S,D,ha,hs,hd).map((pts,i)=>({pts,depth:pts.reduce((a,p)=>a+proj(worldPoint(p))[2],0)/4,fill:colors[i%colors.length]})).sort((a,b)=>b.depth-a.depth);
+ for(const f of faces)drawPoly3(f.pts,f.fill,stroke,Math.max(1,ppmAt(f.depth)*.004));
+}
+function drawRing3(c,A,S,D,r,stroke,width){
+ const pts=[];for(let i=0;i<=36;i++){const a=i/36*Math.PI*2;pts.push(add3(c,add3(mul3(S,Math.cos(a)*r),mul3(D,Math.sin(a)*r))));}
+ const q=pts.map(p=>proj(worldPoint(p)));if(q.some(v=>v[2]<=0))return;
+ ctx.beginPath();ctx.moveTo(q[0][0],q[0][1]);for(let i=1;i<q.length;i++)ctx.lineTo(q[i][0],q[i][1]);
+ ctx.strokeStyle=stroke;ctx.lineWidth=width||2;ctx.stroke();
+}
+function drawValves(dark){
+ /* v3.6: нашлепки-заглушки на пустых портах УБРАНЫ — на сферах видны только
+    клапаны в местах РЕАЛЬНОГО подключения трубок */
+ spheres.forEach((S,si)=>{
+  for(const p of S.ports){
+   if(p.tube)drawValve(S,si,p,dark);
+  }
+ });
+}
+/* v2.6: компас в правом верхнем углу: 8 стрелок (наклон в сторону экрана),
+   игла — текущее направление стока, центр — сброс стола */
+function drawCompass(dark){
+ const cx=W-66,cy=128;
+ ctx.save();
+ ctx.beginPath();ctx.arc(cx,cy,54,0,6.2832);
+ ctx.fillStyle=dark?'rgba(10,30,45,.55)':'rgba(245,251,255,.68)';ctx.fill();
+ ctx.lineWidth=1.5;ctx.strokeStyle=dark?'rgba(127,216,239,.55)':'rgba(60,120,150,.55)';ctx.stroke();
+ const di=drainScreenInfo();
+ for(let k=0;k<8;k++){
+  const a=k*Math.PI/4;
+  const ax=cx+Math.sin(a)*36,ay=cy-Math.cos(a)*36;
+  const hot=di&&Math.abs(Math.atan2(Math.sin(di.ang-a),Math.cos(di.ang-a)))<Math.PI/8;
+  ctx.save();ctx.translate(ax,ay);ctx.rotate(a);
+  ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(5.5,4.5);ctx.lineTo(-5.5,4.5);ctx.closePath();
+  ctx.fillStyle=hot?'rgba(61,220,132,.95)':(dark?'rgba(127,216,239,.8)':'rgba(60,120,150,.85)');
+  ctx.fill();
+  ctx.restore();
+  hitZones.push({x:ax,y:ay,r:15,kind:'compass',ang:k*45});
+ }
+ if(di){
+  const len=13+Math.min(1,di.mag/75)*19;
+  const nx=cx+Math.sin(di.ang)*len,ny=cy-Math.cos(di.ang)*len;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(nx,ny);
+  ctx.strokeStyle='#3ddc84';ctx.lineWidth=3;ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.arc(nx,ny,3,0,6.2832);ctx.fillStyle='#3ddc84';ctx.fill();
+ }
+ ctx.beginPath();ctx.arc(cx,cy,13,0,6.2832);
+ ctx.fillStyle=dark?'rgba(16,40,58,.95)':'rgba(235,246,252,.95)';ctx.fill();
+ ctx.lineWidth=1.5;ctx.strokeStyle=dark?'rgba(127,216,239,.8)':'rgba(60,120,150,.8)';ctx.stroke();
+ ctx.fillStyle=dark?'#cfeaf5':'#173042';ctx.font='bold '+(MOB?17:13)+'px Segoe UI,Arial';
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('⟳',cx,cy+1);
+ hitZones.push({x:cx,y:cy,r:14,kind:'compassReset'});
+ ctx.restore();
+}
+function drawValve(S,si,p,dark){
+ const dir=p.dir; /* ось клапана — наружу из сферы (в системе стола) */
+ const c=[S.C[0]+dir[0]*(S.R+VALVE_D),S.C[1]+dir[1]*(S.R+VALVE_D),S.C[2]+dir[2]*(S.R+VALVE_D)];
+ /* локальный базис: A — вдоль трубки, Sv — «вверх стола» перпендикулярно оси, D — третий */
+ const A=dir;
+ let Sv=[0,1,0],d=dot3(Sv,A);Sv=normalize3([Sv[0]-A[0]*d,Sv[1]-A[1]*d,Sv[2]-A[2]*d]);
+ if(Math.hypot(...Sv)<.25){Sv=[0,0,1];d=dot3(Sv,A);Sv=normalize3([Sv[0]-A[0]*d,Sv[1]-A[1]*d,Sv[2]-A[2]*d]);}
+ const D=normalize3(cross3(A,Sv));
+ const center=worldPoint(c),s=proj(center),px=ppmAt(s[2]);
+ const g=gates[gateOfPort(p)],open=!!g.open;
+ g.ang=((g.ang||0)+((open?90:0)-(g.ang||0))*Math.min(1,dtR*8)); /* плавный ход задвижки */
+ const lift=Math.max(0,Math.min(1,g.ang/90));
+ hitZones.push({x:s[0],y:s[1],r:Math.max(27,px*.105),kind:'gate',gate:gateOfPort(p)});
+ /* v2.6: тап по патрубку (стекло между сферой и клапаном) — стол наклонится к этому порту */
+ if(!(dir[1]>0.5)){ /* верхний порт наклонить вниз нельзя — зоны не даём */
+  const stub=[S.C[0]+dir[0]*(S.R+0.055),S.C[1]+dir[1]*(S.R+0.055),S.C[2]+dir[2]*(S.R+0.055)];
+  const ss=proj(worldPoint(stub));
+  hitZones.push({x:ss[0],y:ss[1],r:Math.max(20,px*.085),kind:'port',si,dir:p.dir});
+ }
+ /* прозрачный корпус */
+ drawBox3(c,A,Sv,D,.142,.094,.086,[
+  'rgba(194,225,235,.25)','rgba(240,252,255,.22)','rgba(120,164,180,.28)',
+  'rgba(218,241,248,.25)','rgba(92,136,154,.30)','rgba(210,237,245,.24)'
+ ],'rgba(60,103,121,.82)');
+ /* v2.6: тёмный канал убран — сквозь прозрачный корпус непрерывно видна трубка */
+ /* крышка (боннет) */
+ const bonnet=add3(c,mul3(Sv,.142));
+ drawBox3(bonnet,A,Sv,D,.071,.102,.078,[
+  'rgba(133,170,186,.64)','rgba(239,249,252,.82)','rgba(170,204,216,.72)',
+  'rgba(211,233,240,.72)','rgba(92,139,158,.70)','rgba(202,229,237,.76)'
+ ],'rgba(69,112,130,.91)');
+ /* задвижка: закрыта — поперёк канала, открыта — уехала в крышку */
+ const bladeC=add3(c,mul3(Sv,.012+lift*.158));
+ drawBox3(bladeC,A,Sv,D,.014,.060,.060,[
+  'rgba(195,59,66,.96)','rgba(255,119,102,.97)','rgba(226,75,76,.96)',
+  'rgba(255,159,135,.97)','rgba(171,50,61,.96)','rgba(255,134,116,.97)'
+ ],'rgba(255,242,235,.96)');
+ /* шток и рукоять */
+ const stemA=add3(c,mul3(Sv,.075)),stemB=add3(c,mul3(Sv,.203+lift*.015));
+ const qa=proj(worldPoint(stemA)),qb=proj(worldPoint(stemB));
+ ctx.lineCap='round';ctx.strokeStyle='rgba(48,73,84,.95)';ctx.lineWidth=Math.max(2,px*.011);
+ ctx.beginPath();ctx.moveTo(qa[0],qa[1]);ctx.lineTo(qb[0],qb[1]);ctx.stroke();
+ const handleL=add3(stemB,mul3(A,-.048)),handleR=add3(stemB,mul3(A,.048));
+ const ql=proj(worldPoint(handleL)),qr=proj(worldPoint(handleR));
+ ctx.strokeStyle=open?'#24bd78':'#ff6963';ctx.lineWidth=Math.max(4,px*.023);
+ ctx.beginPath();ctx.moveTo(ql[0],ql[1]);ctx.lineTo(qr[0],qr[1]);ctx.stroke();
+ /* фланцы-кольца по краям корпуса */
+ for(const sign of[-1,1]){
+  const fc=add3(c,mul3(A,sign*.145));
+  drawRing3(fc,A,Sv,D,.074,'rgba(241,252,255,.95)',Math.max(1.6,px*.009));
+  drawRing3(add3(fc,mul3(A,-sign*.012)),A,Sv,D,.058,'rgba(82,138,157,.76)',Math.max(1,px*.006));
+ }
+ /* буква шибера — над крышкой */
+ const lp=proj(worldPoint(add3(c,mul3(Sv,.265))));
+ ctx.fillStyle=dark?'rgba(240,251,255,.98)':'rgba(25,63,78,.98)';
+ ctx.font='800 '+Math.max(MOB?15:11,Math.round(px*(MOB?.105:.07)))+'px Segoe UI,Arial';
+ ctx.textAlign='center';ctx.textBaseline='bottom';
+ ctx.fillText(GATE_LBL[LANG][gateOfPort(p)],lp[0],lp[1]);
+}
+let hitZones=[];
+let lastRT=0,dtR=0.016;
+function render(t){
+ dtR=Math.min(.05,Math.max(.001,(t-lastRT)||.016));lastRT=t;
+ hitZones=[];
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+ ctx.clearRect(0,0,W,H);
+ MVP=mvp();
+ /* фон-виньетка */
+ const dark=document.documentElement.dataset.theme==='dark';
+ const vg=ctx.createRadialGradient(W/2,H*.35,Math.min(W,H)*.3,W/2,H*.5,Math.max(W,H)*.8);
+ vg.addColorStop(0,dark?'rgba(20,50,70,.25)':'rgba(255,255,255,.18)');
+ vg.addColorStop(1,dark?'rgba(0,10,20,.45)':'rgba(120,160,190,.18)');
+ ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+ /* сущности по глубине */
+ const ents=[];
+ /* v3.6: МЯГКИЕ ТЕНИ под сферами (свет сверху-слева) — рисуются первыми, глужбе всех */
+ spheres.forEach((S,i)=>{
+  const cw=worldPoint(S.C),s0=proj(cw),rp0=S.R*ppmAt(s0[2]);
+  const sgx=s0[0]+rp0*.12,sgy=s0[1]+rp0*.18;
+  const sg=ctx.createRadialGradient(sgx,sgy,0,sgx,sgy,rp0*1.06);
+  sg.addColorStop(0,dark?'rgba(0,8,16,.34)':'rgba(18,55,80,.15)');
+  sg.addColorStop(.7,dark?'rgba(0,8,16,.14)':'rgba(18,55,80,.06)');
+  sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.save();ctx.translate(sgx,sgy);ctx.scale(1,.92);ctx.translate(-sgx,-sgy);
+  ctx.beginPath();ctx.arc(sgx,sgy,rp0*1.06,0,6.2832);ctx.fillStyle=sg;ctx.fill();ctx.restore();
+ });
+ spheres.forEach((S,i)=>ents.push({z:proj(worldPoint(S.C))[2],draw:()=>drawSphere(S,i)}));
+ tubes.forEach((tb,i)=>ents.push({z:proj(worldPoint([(tb.pa[0]+tb.pb[0])/2,(tb.pa[1]+tb.pb[1])/2,(tb.pa[2]+tb.pb[2])/2]))[2],draw:()=>drawTube(tb)}));
+ ents.sort((a,b)=>b.z-a.z);
+ for(const e of ents)e.draw();
+ drawPlumb();
+ fxStep(dtR);drawFX(); /* v3.7: визуальные эффекты */
+ /* v2.1: клапаны-шиберы — верхний слой: видны поверх всего */
+ drawValves(dark);
+ drawCompass(dark);
+ drawHint(); /* v3.7: подсветка подсказки */
+ /* зона «погладить Уму» */
+ const u=balls.find(b=>b.type==='uma'&&!b.dead);
+ if(u&&u.where.kind==='sphere'){
+  const s=proj(worldPoint(u.p));
+  hitZones.push({x:s[0],y:s[1],r:Math.max(18,BALL_R*ppmAt(s[2])*2),kind:'uma'});
+ }
+}
+function drawPlumb(){
+ const g=gLocal();
+ const gxz=[g[0],g[2]],l=Math.hypot(...gxz);
+ const c0=worldPoint([0,0,0]);
+ const c=proj(c0);
+ if(l<0.12)return; /* стол почти горизонтален — не рисуем */
+ const dirW=qRotateVec(rot.q,[g[0],0,g[2]]);
+ const p2=proj(worldPoint([dirW[0]*0.5,0,dirW[2]*0.5]));
+ const dx=p2[0]-c[0],dy=p2[1]-c[1],dl=Math.hypot(dx,dy)||1;
+ const ux=dx/dl,uy=dy/dl;
+ const x0=c[0]+ux*20,y0=c[1]+uy*20,x1=c[0]+ux*64,y1=c[1]+uy*64;
+ const dark=document.documentElement.dataset.theme==='dark';
+ ctx.save();
+ ctx.globalAlpha=.6;ctx.strokeStyle=dark?'rgba(127,216,239,.9)':'rgba(23,90,112,.9)';ctx.lineWidth=1.8;
+ ctx.setLineDash([5,4]);
+ ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+ ctx.setLineDash([]);
+ const px=-uy,py=ux;
+ ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-ux*8+px*4.5,y1-uy*8+py*4.5);
+ ctx.moveTo(x1,y1);ctx.lineTo(x1-ux*8-px*4.5,y1-uy*8-py*4.5);ctx.stroke();
+ ctx.beginPath();ctx.arc(c[0],c[1],2.6,0,6.2832);ctx.fillStyle=ctx.strokeStyle;ctx.fill();
+ ctx.restore();
+}
+
+/* ================= v3.7: ВИЗУАЛЬНЫЕ ЭФФЕКТЫ =========================== */
+let FX=[];
+function fxFlash(p){FX.push({k:'flash',p:p.slice(),t:0});}
+function fxShards(p){for(let i=0;i<10;i++)FX.push({k:'shard',p:p.slice(),v:[(Math.random()-.5)*1.6,Math.random()*1.2+0.3,(Math.random()-.5)*1.6],t:0});}
+function fxStep(dt){
+ if(HINTS.t>0)HINTS.t-=dt;
+ for(const S of spheres)if(S.mods&&S.mods.scale&&S.mods.scale.latchT>0)S.mods.scale.latchT=Math.max(0,S.mods.scale.latchT-dt); /* v3.7: анимация чаши весов */
+ for(const f of FX)f.t+=dt;
+ FX=FX.filter(f=>f.t<(f.k==='shard'?0.8:0.6));
+}
+function drawFX(){
+ for(const f of FX){
+  const s=proj(worldPoint(f.p));if(!Number.isFinite(s[0])||s[2]<=0)continue;
+  if(f.k==='flash'){ /* v3.7: вспышка нейтрализации */
+   const ph=f.t/0.6,r=(4+ph*26);
+   ctx.beginPath();ctx.arc(s[0],s[1],r,0,6.2832);
+   ctx.strokeStyle='rgba(255,255,255,'+(0.75*(1-ph)).toFixed(2)+')';ctx.lineWidth=3;ctx.stroke();
+   ctx.beginPath();ctx.arc(s[0],s[1],r*0.55,0,6.2832);
+   ctx.strokeStyle='rgba(190,240,200,'+(0.5*(1-ph)).toFixed(2)+')';ctx.lineWidth=2;ctx.stroke();
+  }else{ /* v3.7: осколки стекла */
+   const g=2.5,px=f.p[0]+f.v[0]*f.t,py=f.p[1]+f.v[1]*f.t-0.5*g*f.t*f.t,pz=f.p[2]+f.v[2]*f.t;
+   const q=proj(worldPoint([px,py,pz]));if(!Number.isFinite(q[0])||q[2]<=0)continue;
+   const a=1-f.t/0.8;
+   ctx.save();ctx.translate(q[0],q[1]);ctx.rotate(f.t*9+(f.v[0]>0?1:-1));
+   ctx.fillStyle='rgba(225,245,255,'+(a*.9).toFixed(2)+')';
+   ctx.beginPath();ctx.moveTo(0,-3.2);ctx.lineTo(2.6,2.2);ctx.lineTo(-2.6,2.2);ctx.closePath();ctx.fill();ctx.restore();
+  }
+ }
+}
+
+/* ================= ВВОД ================================================ */
+const pointers=new Map();
+let drag=null,pinch=null,dblTap=null;
+function tapAt(x,y){
+ let best=null,bd=1e9;
+ for(const z of hitZones){const d=Math.hypot(z.x-x,z.y-y);if(d<z.r&&d<bd){bd=d;best=z;}}
+ if(!best)return false;
+ if(best.kind==='gate'){toggleGate(best.gate);return true;}
+ if(best.kind==='port'){S.click();tiltToPort(best.si,best.dir);return true;}
+ if(best.kind==='compass'){S.click();tiltToScreenDir(best.ang);return true;}
+ if(best.kind==='compassReset'){S.click();ttReset();return true;}
+ if(best.kind==='uma'){const u=balls.find(b=>b.type==='uma');if(u){S.bubble();u.blink=3;}return true;}
+ return false;
+}
+function toggleGate(lbl){
+ const g=gates[lbl];if(!g)return;
+ if(!g.open){g.open=true;S.valve();}
+ else{
+  /* не закрыть шибер, если шарик у ЭТОГО конца трубки */
+  const t=tubes.find(tb=>tb.gate===lbl||tb.gateB===lbl);
+  const ti=tubes.indexOf(t),end=t.gate===lbl?0:1;
+  const VSTOP=VALVE_D+BALL_R+0.01; /* v3.0: зона заслонки (с запасом на прижатый шарик) — не закрыть шибер на шарике */
+  const blocked=balls.some(b=>!b.dead&&b.where.kind==='tube'&&b.where.i===ti&&
+   (end===0?b.u<VSTOP:b.u>t.L-VSTOP));
+  if(blocked){S.denied();toast(T('gate_blocked'));return;}
+  g.open=false;S.valve();
+ }
+}
+cv.addEventListener('pointerdown',e=>{
+ const auLock=auto.on&&curScreen==='game'&&!paused; /* v3.4: при автосборке ввод отключён — но щипок-зум разрешён */
+ cv.setPointerCapture(e.pointerId);
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===1){
+  if(auLock)return; /* v3.4: один палец при авто не крутит стол и не тапает; TT.anim авто не трогаем */
+  TT.vyaw=TT.vpitch=0;TT.anim=null;
+  drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,moved:false,t:modsT()};
+  cv.classList.add('grabbing');
+ }else if(pointers.size===2){
+  drag=null;
+  const p=[...pointers.values()];
+  pinch={d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)};
+ }
+});
+cv.addEventListener('pointermove',e=>{
+ const old=pointers.get(e.pointerId);if(!old)return;
+ const dx=e.clientX-old.x,dy=e.clientY-old.y;old.x=e.clientX;old.y=e.clientY;
+ if(pinch&&pointers.size>=2){
+  const p=[...pointers.values()],d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  setZoom(cam.dist*(pinch.d/Math.max(40,d)));pinch={d};
+  return;
+ }
+ if(drag){
+  if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>8)drag.moved=true;
+  if(drag.moved){
+   const now=modsT(),dt=Math.max(.008,(now-drag.t)/1000);
+   ttDrag(dx,dy,dt);drag.t=now;
+  }
+ }
+});
+function endPointer(e){
+ pointers.delete(e.pointerId);
+ if(pointers.size<2)pinch=null;
+ if(pointers.size===0){
+  if(e.type==='pointerup'&&drag&&!drag.moved){
+   const hit=tapAt(e.clientX,e.clientY);
+   const now=modsT();
+   if(!hit&&dblTap&&now-dblTap.t<340&&Math.hypot(e.clientX-dblTap.x,e.clientY-dblTap.y)<30){
+    dblTap=null;ttReset();ttHaptic();
+   }else dblTap=hit?null:{x:e.clientX,y:e.clientY,t:now};
+  }
+  drag=null;cv.classList.remove('grabbing');
+ }
+}
+cv.addEventListener('pointerup',endPointer);
+cv.addEventListener('pointercancel',endPointer);
+cv.addEventListener('wheel',e=>{e.preventDefault();setZoom(cam.dist*(e.deltaY<0?0.92:1.08));},{passive:false});
+addEventListener('keydown',e=>{
+ if(e.metaKey||e.ctrlKey||e.altKey)return;
+ if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||''))return;
+ const k=e.code,step=15*DEG;
+ if(k==='Escape'){if(curScreen==='game')togglePause();else if(curScreen==='help')showScreen(prevScreen);return;}
+ if(k==='KeyM'){setSound(!sndOn);paintStatic();return;}
+ if(k==='KeyT'){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');return;}
+ if(k==='KeyL'&&curScreen!=='game'){setLang(lang()==='ru'?'en':'ru');paintStatic();return;} /* v3.2: в игре KeyL — шибер L */
+ if(curScreen!=='game')return;
+ if(paused){if(k==='Enter'||k==='Space'){e.preventDefault();togglePause(false);}return;}
+ if(auto.on){ /* v3.2: во время автосборки наклон/шиберы с клавиатуры отключены */
+  if(k==='KeyR'){restart();return;}
+  if(k==='ArrowLeft'||k==='KeyA'||k==='ArrowRight'||k==='KeyD'||k==='ArrowUp'||k==='KeyW'||k==='ArrowDown'||k==='KeyS'||k==='KeyQ'||k==='KeyE'||/^Digit[1-9]$/.test(k)||/^Key[J-L]$/.test(k))return;
+ }
+ if(k==='ArrowLeft'||k==='KeyA'){ttKey(0,step);e.preventDefault();}
+ else if(k==='ArrowRight'||k==='KeyD'){ttKey(0,-step);e.preventDefault();}
+ else if(k==='ArrowUp'||k==='KeyW'){ttKey(-step,0);e.preventDefault();}
+ else if(k==='ArrowDown'||k==='KeyS'){ttKey(step,0);e.preventDefault();}
+ else if(k==='KeyQ'){ttKey(0,Math.PI/36);}
+ else if(k==='KeyE'){ttKey(0,-Math.PI/36);}
+ else if(k==='Equal'||k==='NumpadAdd'){setZoom(cam.dist*0.88);}
+ else if(k==='Minus'||k==='NumpadSubtract'){setZoom(cam.dist*1.14);}
+ else if(k==='KeyR'){restart();}
+ else if(/^Digit[1-9]$/.test(k)){const gl='ABCDEFGHI'[+k.slice(5)-1];if(gates[gl])toggleGate(gl);}
+ else if(/^Key[J-L]$/.test(k)){const gl='JKL'[k.charCodeAt(3)-74];if(gates[gl])toggleGate(gl);}
+});
+
+/* ================= v2.2: КНОПКИ ВРАЩЕНИЯ КОНСТРУКЦИИ ================== */
+function ttGo(dP,dY){ /* v2.5: крупный шаг (90°/45°) с длинным инерционным выбегом (0.7 с) */
+ TT.vyaw=TT.vpitch=0;
+ TT.anim={t:0,dur:2.6,y0:TT.yaw,p0:TT.pitch,y1:TT.yaw+dY,p1:clamp(TT.pitch+dP,-TT_PMAX,TT_PMAX),haptic:false};
+}
+function padOK(){return curScreen==='game'&&!paused&&!auto.on;} /* v3.2: при автосборке кнопки поворота отключены */
+/* v2.6: наклонить стол так, чтобы порт сферы стал нижней точкой (0.4 с) */
+function tiltToPort(si,dir){
+ /* v2.7: ТОЛЬКО канонические ориентации: yaw кратен 90°, pitch кратен 45°.
+    Порт поворачивается СТРОГО вниз (w[1]<=-0.999), вся конструкция остаётся
+    выровненной по «лестнице» — без перекосов. Из кандидатов берём ближайший
+    к текущему положению. Поворот — плавный, 2.6 с. */
+ let best=null;
+ for(let yd=-180;yd<180;yd+=90)for(const pd of[-90,-45,0,45,90]){
+  const y=yd*DEG,p=pd*DEG;
+  const q=qNormalize(qMultiply(qAxisAngle([1,0,0],p),qAxisAngle([0,1,0],y)));
+  const w=qRotateVec(q,dir);
+  if(w[1]>-0.999)continue; /* не строго вниз — не годится */
+  let dy=y-TT.yaw;while(dy>Math.PI)dy-=2*Math.PI;while(dy<-Math.PI)dy+=2*Math.PI;
+  const cost=Math.abs(dy)+Math.abs(p-TT.pitch)*0.5;
+  if(!best||cost<best.cost)best={cost,y,p};
+ }
+ if(!best)return;
+ let y2=best.y;
+ while(y2-TT.yaw>Math.PI)y2-=2*Math.PI;
+ while(y2-TT.yaw<-Math.PI)y2+=2*Math.PI;
+ TT.vyaw=TT.vpitch=0;
+ TT.anim={t:0,dur:2.6,y0:TT.yaw,p0:TT.pitch,y1:y2,p1:clamp(best.p,-TT_PMAX,TT_PMAX),haptic:true};
+}
+/* v2.6: направление стока на экране для текущего/заданного поворота (0°=вверх, 90°=вправо) */
+function drainScreenInfoQ(q){
+ /* v2.7: в модели поворота Rx·Ry мировой сток всегда «вниз экрана», поэтому
+    компас показывает НАПРАВЛЕНИЕ НИЖНЕЙ СТОРОНЫ КОНСТРУКЦИИ (в локальном
+    каркасе, спроецированном на экран) — 8 стрелок = 8 ориентаций «лестницы» */
+ const gl=[0,-1,0];
+ const n=qRotateVec(q,[0,1,0]);
+ const gn=gl[0]*n[0]+gl[1]*n[1]+gl[2]*n[2];
+ let d=[gl[0]-n[0]*gn,gl[1]-n[1]*gn,gl[2]-n[2]*gn];
+ const dl=Math.hypot(...d);
+ if(dl<1e-4)return null;
+ d=d.map(v=>v/dl);
+ const loc=qRotateVec(q,[d[0]*.5,d[1]*.5,d[2]*.5]);
+ const s0=proj([0,STRUCT_Y,0]),s1=proj([loc[0],loc[1]+STRUCT_Y,loc[2]]);
+ return {ang:Math.atan2(s1[0]-s0[0],-(s1[1]-s0[1])),mag:Math.acos(Math.max(-1,Math.min(1,n[1])))/DEG};
+}
+function drainScreenInfo(){return drainScreenInfoQ(rot.q);}
+/* v2.6: наклонить стол так, чтобы шарики покатились в указанную сторону ЭКРАНА (0°=вверх) */
+function tiltToScreenDir(angDeg){
+ /* v2.7: сетка yaw 45° + наклон 45° — строго, плавно (2.6 с) */
+ const target=angDeg*DEG;
+ let best=null;
+ for(let yd=-180;yd<180;yd+=45){
+  const y=yd*DEG,p=TT_SNAP*3;
+  const q=qNormalize(qMultiply(qAxisAngle([1,0,0],p),qAxisAngle([0,1,0],y)));
+  const di=drainScreenInfoQ(q);
+  if(!di)continue;
+  let dd=di.ang-target;dd=Math.atan2(Math.sin(dd),Math.cos(dd));
+  let dy=y-TT.yaw;while(dy>Math.PI)dy-=2*Math.PI;while(dy<-Math.PI)dy+=2*Math.PI;
+  const cost=Math.abs(dd)+Math.abs(dy)*0.05;
+  if(!best||cost<best.cost)best={cost,y};
+ }
+ if(!best)return;
+ let y2=best.y;
+ while(y2-TT.yaw>Math.PI)y2-=2*Math.PI;
+ while(y2-TT.yaw<-Math.PI)y2+=2*Math.PI;
+ TT.vyaw=TT.vpitch=0;
+ TT.anim={t:0,dur:2.6,y0:TT.yaw,p0:TT.pitch,y1:y2,p1:TT_SNAP*3,haptic:true};
+}
+function refreshSpinPad(){
+ try{
+  const gl={'sp-left':'◀','sp-up':'▲','sp-reset':'⟳','sp-down':'▼','sp-right':'▶'};
+  const ti={'sp-left':T('sp_l'),'sp-right':T('sp_r'),'sp-up':T('sp_u'),'sp-down':T('sp_d'),'sp-reset':T('sp_0')};
+  for(const id in gl){const el=$(id);if(el){el.textContent=gl[id];el.title=ti[id];}}
+ }catch(e){}
+}
+function bindSpinPad(){
+ [['sp-left',()=>ttGo(0,-TT_BYAW)],['sp-right',()=>ttGo(0,TT_BYAW)],
+  ['sp-up',()=>ttGo(-TT_BPITCH,0)],['sp-down',()=>ttGo(TT_BPITCH,0)],
+  ['sp-reset',()=>ttReset()]].forEach(a=>{
+  const el=$(a[0]);if(!el)return;
+  el.addEventListener('pointerdown',e=>{e.preventDefault();if(!padOK())return;S.click();a[1]();});
+ });
+ refreshSpinPad();
+}
+
+/* ================= ЭКРАНЫ / UI ======================================== */
+let curScreen='start',prevScreen='start',paused=false,pauseAt=0;
+const $=id=>document.getElementById(id);
+function showScreen(s){
+ if(curScreen==='game'&&s!=='game'&&auto.on)autoStop(); /* v3.3: ушли с игрового экрана — авто стоп */
+ prevScreen=curScreen;curScreen=s;
+ $('scr-start').classList.toggle('on',s==='start');
+ $('scr-help').classList.toggle('on',s==='help');
+ $('scr-game').classList.toggle('on',s==='game');
+ $('scr-levels').classList.toggle('on',s==='levels');
+ $('scr-hof').classList.toggle('on',s==='hof');
+ $('scr-ref').classList.toggle('on',s==='ref');
+ if(s==='levels')paintLvlGrid();
+ if(s==='hof')paintHall();
+ $('btn-back').classList.toggle('on',s!=='start'); /* v3.5: «назад» видна и В ИГРЕ — выход в меню всегда доступен */
+ $('spinPad').classList.toggle('on',s==='game');
+ if(s==='game')resize();
+}
+function togglePause(force){
+ if(curScreen!=='game')return;
+ const want=force===undefined?!paused:force;
+ if(want===paused)return;
+ paused=want;
+ $('ov-pause').classList.toggle('on',paused);
+ if(paused){Plat.gameplayStop();pauseAt=modsT();if(AC)AC.suspend&&AC.suspend();}
+ else{if(AC)AC.resume&&AC.resume();Plat.gameplayStart();if(pauseAt){levelStart+=modsT()-pauseAt;pauseAt=0;}}
+}
+function restart(){buildLevel();hideOverlays();paused=false;$('ov-pause').classList.remove('on');showScreen('game');$('lt-name').textContent=T(LEVELS[lvIdx].name);$('lt-sub').textContent=T(LEVELS[lvIdx].target);dragHintOn=true;}
+function hideOverlays(){$('ov-win').classList.remove('on');$('ov-lose').classList.remove('on');$('ov-auto').classList.remove('on');}
+function startGame(){S.sel();hideOverlays();restart();showMech();} /* v3.7: + попап новой механики */
+let toastT=0;
+function toast(msg,dur){const t=$('toast');t.textContent=msg;t.style.display='block';toastT=dur||2.2;} /* v3.4: dur — длительность, сек */
+/* ================= v3.7: ПОПАП «НОВАЯ МЕХАНИКА» ======================= */
+const MECH={2:['alkali','mech2'],3:['metal','mech3'],4:['helium','mech4'],5:['magnet+','mech5'],6:['ice','mech6'],7:['girya','mech7'],8:['explosive','mech8'],9:['key','mech9'],10:['ice','mech10']};
+let mechT=0;
+function showMech(){ /* v3.7: на старте Ур. 2-10 — 2,2 с, игру не блокирует */
+ const m=MECH[lvIdx+1];const el=$('mech');
+ if(!m){el.classList.remove('on');return;}
+ const cc=ballColor(m[0]);
+ try{$('mech-dot').style.background='radial-gradient(circle at 32% 30%,'+cc[0]+','+cc[1]+')';
+  $('mech-txt').textContent=T(m[1]);$('mech-t').textContent=T('mech_t');
+  el.classList.add('on');mechT=2.2;}catch(e){}
+}
+function onWin(){
+ Plat.gameplayStop();S.win();
+ const tt=(modsT()-levelStart)/1000;
+ const L=LEVELS[lvIdx];
+ let stars=1;if(tt<=L.stars[1])stars=2;if(tt<=L.stars[0])stars=3;
+ let capTxt=''; /* v3.7: честные звёзды — автосборка/подсказки/неполный сбор снижают оценку */
+ if(attemptAuto){stars=Math.min(stars,1);capTxt=T('star_auto');}
+ else if(HINTS.used>0){stars=Math.min(stars,2);capTxt=T('star_hint');}
+ if(lvIdx===9){ /* v3.7: Ур.10 — 3★ только при полном сборе (2 воды+гиря+магнит) */
+  const fi=spheres.findIndex(x=>x.kind==='exit');
+  const inF=t=>balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===fi&&b.type===t).length;
+  if(!(inF('water')>=2&&inF('girya')>=1&&inF('magnet+')>=1)){if(stars>2)stars=2;capTxt=capTxt||T('star_items');}
+ }
+ const rec=records[lvIdx];
+ if(!rec||tt<rec.t)records[lvIdx]={t:tt,s:Math.max(stars,rec?rec.s:0)};
+ else if(stars>rec.s)records[lvIdx].s=stars;
+ saveRecords();
+ if(lvIdx+1>progress){progress=Math.min(LEVELS.length-1,lvIdx+1);saveProgress();}
+ const last=lvIdx>=LEVELS.length-1;
+ $('w-title').textContent=T(last?'win_final':'win_title');
+ $('w-next').textContent=T(last?'next_last':'next');
+ $('w-time').textContent=T('win_time')+': '+tt.toFixed(1)+' с · '+(stars===3?T('star3'):stars===2?T('star2'):'').replace('%d',stars===3?L.stars[0]:L.stars[1])+(capTxt?' · '+capTxt:'');
+ const st=$('w-stars');
+ for(let i=0;i<3;i++){const c=st.children[i];if(c)c.classList.toggle('on',i<stars);}
+ st.classList.remove('pop');void st.offsetWidth;st.classList.add('pop');
+ $('ov-win').classList.add('on');
+}
+function onLose(){
+ Plat.gameplayStop();S.lose();
+ if(auto.on){autoAbort(T('auto_r_dead'));return;} /* v3.3: автосборка погубила Уму — оверлей с причиной */
+ $('ov-lose').classList.add('on');
+}
+function applyTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem('sozvezdie_theme',t);}catch(e){}}
+function setSound(on){sndOn=!!on;try{localStorage.setItem('sozvezdie_sound',on?'on':'off');}catch(e){}}
+function paintStatic(){
+ document.documentElement.lang=LANG;
+ $('lang-lbl').textContent=LANG.toUpperCase();
+ $('b-auto-lbl').textContent=T('auto');
+ $('au-retry').textContent=T('au_retry');
+ $('au-menu').textContent=T('au_menu');
+ $('m-logo').textContent=T('logo');
+ $('m-sub').textContent=T('sub');
+ $('b-play').textContent=T('play');
+ $('b-help').textContent=T('help');
+ $('m-ver').textContent=T('ver');
+ $('help-title').textContent=T('help_title');
+ $('help-body').innerHTML=T('help_html');
+ $('help-footer').textContent=T('ver');
+ $('p-title').textContent=T('pause');
+ $('p-resume').textContent=T('resume');
+ $('p-help').textContent=T('p_help');
+ $('p-menu').textContent=T('menu');
+ $('w-title').textContent=T('win_title');
+ $('w-next').textContent=T('next');
+ $('w-menu').textContent=T('menu');
+ $('l-title').textContent=T('lose_title');
+ $('l-msg').textContent=T('lose_msg');
+ $('l-retry').textContent=T('retry');
+ $('l-menu').textContent=T('menu');
+ $('dragHint').textContent=T(matchMedia('(pointer:coarse)').matches?'drag_touch':'drag_pc');
+ $('lt-name').textContent=T(LEVELS[lvIdx].name);
+ $('lt-sub').textContent=T(LEVELS[lvIdx].target);
+ $('b-levels').textContent=T('levels');
+ $('b-hof').textContent=T('hof');
+ $('b-ref').textContent=T('ref');
+ $('lv-title').textContent=T('lv_title');
+ $('hof-title').textContent=T('hof_title');
+ $('ref-title').textContent=T('ref_title');
+ $('ref-body').innerHTML=T('ref_html');
+ paintLvlGrid();paintHall();
+}
+function paintLvlGrid(){
+ const g=$('lvlGrid');if(!g)return;
+ g.innerHTML='';
+ LEVELS.forEach((L,i)=>{
+  const b=document.createElement('button');
+  b.type='button';
+  const un=unlockedLv(i),rec=records[i];
+  b.className='lvlcard'+(un?'':' locked');
+  b.innerHTML='<div class="num">'+(i+1)+'</div><div class="nm">'+T(L.name).replace(/^Ур\. \d+ · /,'').replace(/^Lv\. \d+ · /,'')+'</div>'+
+   '<div class="st">'+(un?('★'.repeat(rec?rec.s:0)+'☆'.repeat(3-(rec?rec.s:0))):'🔒')+'</div>';
+  if(un)b.addEventListener('click',()=>{S.click();startLevel(i);});
+  else b.disabled=true;
+  g.appendChild(b);
+ });
+}
+function paintHall(){
+ const list=$('hofList');if(!list)return;
+ let tot=0;for(const k in records)tot+=(records[k]&&records[k].s)||0;
+ $('hof-total').textContent=T('hof_total').replace('%d',tot).replace('%d',LEVELS.length*3);
+ list.innerHTML='';
+ LEVELS.forEach((L,i)=>{
+  const rec=records[i];
+  const row=document.createElement('div');
+  row.className='hallrow';
+  row.innerHTML='<div class="rk">'+(i+1)+'</div><div class="nm">'+T(L.name)+'</div>'+
+   '<div class="sc">'+(rec?(rec.t.toFixed(1)+' с<span class="st">'+'★'.repeat(rec.s)+'</span>'):T('hof_norec'))+'</div>';
+  list.appendChild(row);
+ });
+}
+function wireUI(){
+ $('b-play').addEventListener('click',()=>{S.click();startLevel(Math.min(progress,LEVELS.length-1));});
+ $('b-help').addEventListener('click',()=>{S.click();showScreen('help');});
+ $('b-levels').addEventListener('click',()=>{S.click();showScreen('levels');});
+ $('b-hof').addEventListener('click',()=>{S.click();showScreen('hof');});
+ $('b-ref').addEventListener('click',()=>{S.click();showScreen('ref');});
+ $('b-auto').addEventListener('click',()=>{S.click();if(auto.on)autoStop(true);else Plat.reward(autoStart);}); /* v3.2: авто за рекламу (в одиночном файле — сразу) */
+ $('b-hint').addEventListener('click',()=>{S.click();hintRequest();}); /* v3.7: подсказка — 3 бесплатно, дальше реклама */
+ $('au-retry').addEventListener('click',()=>{S.click();hideOverlays();restart();}); /* v3.3: повтор уровня после провала авто */
+ $('au-menu').addEventListener('click',()=>{S.click();hideOverlays();showScreen('start');}); /* v3.3: в меню после провала авто */
+ $('btn-back').addEventListener('click',()=>{S.click();
+  if(curScreen==='help'){showScreen(prevScreen==='game'?'game':'start');if(curScreen!=='game')paintStatic();}
+  else if(curScreen==='game'){ /* v3.5: в игре «назад» — пауза (оттуда в меню); после победы/провала — сразу в меню */
+   if(gameState==='play')togglePause(true);
+   else{hideOverlays();showScreen('start');paintStatic();}
+  }
+  else{showScreen('start');paintStatic();}
+ });
+ $('btn-lang').addEventListener('click',()=>{setLang(lang()==='ru'?'en':'ru');paintStatic();S.click();});
+ $('btn-theme').addEventListener('click',()=>{applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');S.click();});
+ $('btn-sound').addEventListener('click',()=>{setSound(!sndOn);paintStatic();if(sndOn)S.sel();});
+ $('bZoomIn').addEventListener('click',()=>{setZoom(cam.dist*0.88);S.click();});
+ $('bZoomOut').addEventListener('click',()=>{setZoom(cam.dist*1.14);S.click();});
+ $('bReset').addEventListener('click',()=>{ /* v3.4: при автосборке ↺ возвращает исходный масштаб */
+ if(auto.on&&curScreen==='game'&&!paused){fitCam();S.click();return;}
+ ttReset();ttHaptic();S.click();});
+ $('w-next').addEventListener('click',()=>{S.click();
+  if(lvIdx>=LEVELS.length-1){hideOverlays();showScreen('start');paintStatic();}
+  else startLevel(lvIdx+1);});
+ $('w-menu').addEventListener('click',()=>{S.click();hideOverlays();showScreen('start');paintStatic();});
+ $('l-retry').addEventListener('click',()=>{S.click();restart();});
+ $('l-menu').addEventListener('click',()=>{S.click();hideOverlays();showScreen('start');paintStatic();});
+ $('p-resume').addEventListener('click',()=>{S.click();togglePause(false);});
+ $('p-help').addEventListener('click',()=>{S.click();showScreen('help');});
+ $('p-menu').addEventListener('click',()=>{S.click();paused=false;$('ov-pause').classList.remove('on');Plat.gameplayStop();showScreen('start');paintStatic();});
+}
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden&&curScreen==='game'&&!paused)togglePause(true);
+ if(document.hidden&&AC)AC.suspend&&AC.suspend();
+ if(!document.hidden&&AC&&!paused)AC.resume&&AC.resume();
+});
+
+/* ================= ЦИКЛ =============================================== */
+let lastT=0,acc=0,statFps=60,dragHintOn=true,dragHintT=0;
+/* ================= v3.2: АВТОСБОРКА ==================================== */
+/* План уровня: {tp:[сфера,направление]} — наклон к порту; {flat:true} — выровнять;
+   {g:['B','E']} — открыть шиберы; {w:сек} — выдержка. Планы проверены симуляцией. */
+const AUTO_PLANS=[
+ [{tp:['W',[0,0,1]],g:['B','E'],w:26}],
+ [{tp:['W',[1,0,1]],g:['E','F'],w:32}],
+ /* v3.7 L3: Ума через T3 напрямую (перегородка T1 больше не мешает), воды — T2 */
+ [{tp:['W',[1,0,0]],g:['E','F'],w:14},{tp:['V',[1,0,1]],g:['C','D'],w:32}],
+ [{g:['C','D'],flat:true,w:7},{tp:['W',[0,0,1]],g:['E','F'],w:5},{flat:true,w:3},{tp:['N',[0,0,-1]],w:11},{tp:['W',[1,0,0]],g:['B'],w:32}],
+ /* v3.7 L5: длинный путь W→K→D→F (через новую сферу D) */
+ [{g:['D','E','F','G','H'],flat:true,w:8},{tp:['W',[1,0,1]],g:['A','B'],w:14},{tp:['D',[0,0,-1]],w:26}],
+ [{tp:['W',[1,0,-1]],g:['A','B'],w:9},{tp:['N',[1,0,1]],g:['E','F'],w:12},{tp:['C',[1,0,-1]],g:['G','H'],w:9},{tp:['H',[1,0,0]],g:['D'],w:32}],
+ /* v3.7 L7: безопасный длинный путь W→M→S→F; чистые направления, чтобы толпа
+    не проваливалась в открытую кислоту; финал — мягкий наклон (p) и вход в F
+    через НИЖНИЙ порт — металл не падает на покоящуюся Уму */
+ [{tp:['W',[-1,0,-0.15]],g:['A','B'],gc:['G','H'],w:14},{tp:['M',[0.5,0,1]],g:['C','D'],w:14},{tp:['S',[1,0,0]],g:['F'],w:32}],
+ /* v3.7 L8: перегородку ломает гиря (первая у порта), датчик N открывает E */
+ [{tp:['W',[-1,0,0]],w:12},{tp:['M',[0,0,1]],g:['C','D'],w:12},{tp:['V',[-1,0,0]],g:['I','J'],w:10},{tp:['N',[1,0,0]],g:['I','J'],w:10},{tp:['V',[1,0,0]],g:['E','F'],w:14},{tp:['S',[1,0,-0.3]],g:['H'],p:0.55,w:32}],
+ [{tp:['W',[0,0,1]],g:['A','B'],w:30},{tp:['G',[0.3,0,1]],g:['E','F'],w:15},{tp:['V',[1,0,1]],g:['G','H'],w:20},{tp:['L',[1,0,-0.3]],g:['D','J'],w:40}],
+ /* v3.7 L10: ключ★ и Ума — СРАЗУ в замок L через T6 (K,L), затем длинный путь;
+    финал — мягкий наклон, вход в F через нижний порт */
+ [{tp:['W',[0,0,1]],g:['K','L'],w:16},{tp:['L',[1,0,0]],g:['D'],w:14},{tp:['V',[1,0,0]],g:['E','F'],w:14},{tp:['S',[1,0,0]],g:['H'],w:16},{tp:['H',[0.3,0,-1]],g:['I','J'],p:0.6,w:30}]
+];
+const auto={on:false,i:0,t:0,enter:true};
+let attemptAuto=false; /* v3.7: автосборка использована в этой попытке */
+function autoGlide(p,y){
+ let y2=y;while(y2-TT.yaw>Math.PI)y2-=2*Math.PI;while(y2-TT.yaw<-Math.PI)y2+=2*Math.PI;
+ TT.vyaw=TT.vpitch=0;TT.anim={t:0,dur:0.7,y0:TT.yaw,p0:TT.pitch,y1:y2,p1:p,haptic:false};
+}
+function autoEnter(st){
+ if(st.g)for(const l of st.g){if(gates[l]&&!gates[l].open)toggleGate(l);}
+ if(st.gc)for(const l of st.gc){if(gates[l]&&gates[l].open)toggleGate(l);} /* v3.7: gc — закрыть (кислота на время авто) */
+ if(st.tp)autoGlide(TT_PMAX*(st.p||1),Math.atan2(-st.tp[1][0],st.tp[1][2])); /* v3.7: p — мягкий наклон (плавный финиш) */
+ else if(st.flat)autoGlide(0,0);
+}
+/* ================= v3.7: ПОДСКАЗКА ==================================== */
+const HINTS={free:3,used:0,idx:0,t:0};
+function hintStepDone(st){
+ if(st.g&&st.g.some(l=>gates[l]&&!gates[l].open))return false;
+ if(st.gc&&st.gc.some(l=>gates[l]&&gates[l].open))return false;
+ if(st.tp){
+  const si=spheres.findIndex(x=>x.id===st.tp[0]);if(si<0)return false;
+  const wd=qRotateVec(rot.q,st.tp[1]);
+  if(wd[1]>(st.p?-0.35:-0.72))return false; /* порт ещё не смотрит вниз */
+ }
+ return true;
+}
+function hintAdvance(){const plan=AUTO_PLANS[lvIdx]||[];while(HINTS.idx<plan.length&&hintStepDone(plan[HINTS.idx]))HINTS.idx++;return plan[HINTS.idx]||null;}
+function hintShow(){
+ const st=hintAdvance();
+ HINTS.used++;HINTS.t=4.5;
+ try{$('b-hint-lbl').textContent=Math.max(0,HINTS.free-HINTS.used);}catch(e){}
+ if(!st){toast(T('hint_done'),4);return;}
+ if(st.g)toast(T('hint_gates').replace('%1',st.g.join(', ')),4.5);
+ else if(st.tp)toast(T('hint_tilt').replace('%1',st.tp[0]),4.5);
+ else if(st.flat)toast(T('hint_flat'),4.5);
+ S.sel();
+}
+function hintRequest(){
+ if(curScreen!=='game'||paused||gameState!=='play'||auto.on)return;
+ if(HINTS.used<HINTS.free)hintShow();
+ else Plat.reward(hintShow); /* v3.7: после 3 бесплатных — за рекламу */
+}
+function drawHint(){ /* v3.7: пульсирующие кольца на шиберах + стрелка наклона */
+ if(HINTS.t<=0)return;
+ const st=hintAdvance();if(!st)return;
+ const pul=0.55+0.45*Math.sin(modsT()/130);
+ if(st.g){
+  spheres.forEach(S=>S.ports.forEach(p=>{
+   if(!p.tube)return;
+   const gl=gateOfPort(p);
+   if(st.g.indexOf(gl)<0)return;
+   const c=[S.C[0]+p.dir[0]*(S.R+VALVE_D),S.C[1]+p.dir[1]*(S.R+VALVE_D),S.C[2]+p.dir[2]*(S.R+VALVE_D)];
+   const sp=proj(worldPoint(c));if(!Number.isFinite(sp[0])||sp[2]<=0)return;
+   const r=Math.max(24,ppmAt(sp[2])*.14);
+   ctx.beginPath();ctx.arc(sp[0],sp[1],r,0,6.2832);
+   ctx.lineWidth=3.5;ctx.strokeStyle='rgba(255,214,64,'+(0.85*pul).toFixed(2)+')';ctx.stroke();
+   ctx.beginPath();ctx.arc(sp[0],sp[1],r*0.55,0,6.2832);
+   ctx.lineWidth=2;ctx.strokeStyle='rgba(255,214,64,'+(0.5*pul).toFixed(2)+')';ctx.stroke();
+  }));
+ }
+ if(st.tp){
+  const S=spheres.find(x=>x.id===st.tp[0]);
+  if(S){
+   const c=proj(worldPoint(S.C));
+   const e=proj(worldPoint([S.C[0]+st.tp[1][0]*S.R*2.1,S.C[1]+st.tp[1][1]*S.R*2.1,S.C[2]+st.tp[1][2]*S.R*2.1]));
+   if(Number.isFinite(c[0])&&Number.isFinite(e[0])&&c[2]>0&&e[2]>0){
+    const dx=e[0]-c[0],dy=e[1]-c[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l;
+    const x0=c[0]+ux*14,y0=c[1]+uy*14,x1=c[0]+ux*(14+46*pul+18),y1=c[1]+uy*(14+46*pul+18);
+    ctx.save();ctx.strokeStyle='rgba(255,214,64,.95)';ctx.lineWidth=5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+    const px=-uy,py=ux;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-ux*14+px*8,y1-uy*14+py*8);
+    ctx.moveTo(x1,y1);ctx.lineTo(x1-ux*14-px*8,y1-uy*14-py*8);ctx.stroke();ctx.restore();
+   }
+  }
+ }
+}
+function autoReset(){
+ auto.on=false;auto.i=0;auto.t=0;auto.enter=true;
+ try{$('b-auto').classList.remove('on');$('b-auto-lbl').textContent=T('auto');}catch(e){}
+}
+function autoStart(){
+ if(curScreen!=='game'||paused||gameState!=='play')return;
+ restart(); /* v3.3: план рассчитан на стартовое состояние — честно сбрасываем уровень */
+ hideOverlays();
+ auto.on=true;auto.i=0;auto.t=0;auto.enter=true;attemptAuto=true;
+ $('b-auto').classList.add('on');$('b-auto-lbl').textContent=T('auto_stop');
+ toast(T('auto_on')+' '+T('auto_hint'),5);S.sel(); /* v3.4: подсказка про масштаб и СТОП */
+}
+function autoStop(msg){
+ if(!auto.on)return;auto.on=false;
+ try{$('b-auto').classList.remove('on');$('b-auto-lbl').textContent=T('auto');}catch(e){}
+ if(msg)toast(T('auto_off'));
+}
+function autoLostBall(){ /* v3.3: ценный шарик утрачен? (ключ для needLock, шары из win.items) */
+ const L=LEVELS[lvIdx];
+ const lk=spheres.find(x=>x.mods&&x.mods.lock);
+ if(L.win.needLock&&lk&&lk.mods.lock.symbol){
+  if(!balls.some(b=>!b.dead&&b.type==='key'&&b.keySymbol===lk.mods.lock.symbol))return true;
+ }
+ for(const it of (L.win.items||[])){
+  if(balls.filter(b=>!b.dead&&b.type===it.type).length<it.count)return true;
+ }
+ return false;
+}
+function autoAbort(reason){ /* v3.3: автосборка невозможна — оверлей с причиной */
+ auto.on=false;
+ try{$('b-auto').classList.remove('on');$('b-auto-lbl').textContent=T('auto');}catch(e){}
+ $('au-title').textContent=T('auto_no');
+ $('au-reason').textContent=reason;
+ $('ov-auto').classList.add('on');
+ S.denied();
+}
+function ballsCalm(){ /* v3.6: все шарики почти неподвижны (в сфере или в трубке) */
+ for(const b of balls){
+  if(b.dead)continue;
+  const sp=b.where.kind==='sphere'?Math.hypot(b.v[0],b.v[1],b.v[2]):Math.abs(b.v1d);
+  if(sp>0.07)return false;
+ }
+ return true;
+}
+function autoTick(dt){
+ if(!auto.on)return;
+ if(gameState!=='play'){autoStop();return;}
+ const plan=AUTO_PLANS[lvIdx],st=plan?plan[auto.i]:null;
+ if(!st){ /* план выполнен — ждём победу: 30 с покоя (и не более 60 с всего) */
+  if(auto.enter){auto.enter=false;auto.t=0;auto.calm=0;}
+  auto.t+=dt;
+  if(ballsCalm())auto.calm=(auto.calm||0)+dt;else auto.calm=0;
+  if(auto.calm>30||auto.t>60){autoAbort(T(autoLostBall()?'auto_r_ball':'auto_r_fail'));} /* v3.3: причина + кнопки */
+  return;
+ }
+ if(auto.enter){autoEnter(st);auto.enter=false;auto.t=0;auto.calm=0;}
+ auto.t+=dt;
+ if(ballsCalm())auto.calm=(auto.calm||0)+dt;else auto.calm=0;
+ /* v3.6: БЕЗ ПАУЗ — следующий шаг, как только шарики улеглись (но не раньше
+    минимума: плавный наклон 0.7 с + старт слива; w — лишь предохранитель) */
+ const minT=Math.max(1.8,st.w*0.3);
+ if((auto.t>=minT&&auto.calm>=1.1)||auto.t>=st.w+0.7){auto.i++;auto.enter=true;}
+}
+function frame(ts){
+ requestAnimationFrame(frame);
+ const t=ts/1000;
+ let dt=Math.min(0.05,t-lastT||0.016);lastT=t;
+ statFps=statFps+(1/Math.max(1e-3,dt)-statFps)*0.05;
+ if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').style.display='none';}
+ if(mechT>0){mechT-=dt;if(mechT<=0)try{$('mech').classList.remove('on');}catch(e){}} /* v3.7: попап механики */
+ if(curScreen==='game'&&!paused){
+  ttStep(dt);
+  autoTick(dt); /* v3.2: автосборка — наклоны/шиберы по плану */
+  if(gameState==='play'){
+   acc+=dt;let n=0;
+   while(acc>=1/SIM_HZ&&n<4){step(1/SIM_HZ);acc-=1/SIM_HZ;n++;}
+   if(acc>0.2)acc=0;
+   levelT+=dt;
+   /* подсказки */
+   for(let i=LEVELS[lvIdx].hints.length-1;i>=0;i--){
+    if(levelT>LEVELS[lvIdx].hints[i].after&&shownHint<i){
+     shownHint=i;const h=$('hint');h.textContent=T(LEVELS[lvIdx].hints[i].key);h.classList.add('on');
+     setTimeout(()=>h.classList.remove('on'),5200);
+     break;
+    }
+   }
+  }
+  /* мигание Умы */
+  for(const b of balls)if(b.blink>0)b.blink-=dt;
+  /* dragHint */
+  if(dragHintOn){dragHintT+=dt;$('dragHint').classList.add('on');if(dragHintT>6){dragHintOn=false;$('dragHint').classList.remove('on');}}
+  render(t);
+  /* HUD наклона */
+  const th=$('tiltHud');
+  const dwn=qRotateVec(rot.q,[0,-1,0]);
+  const tilt=Math.acos(Math.max(-1,Math.min(1,-dwn[1])))/DEG;
+  th.classList.add('on');
+  const txt=Math.round(tilt)+'°';
+  if($('tiltDeg').textContent!==txt)$('tiltDeg').textContent=txt;
+  th.classList.toggle('snap',Math.abs(tilt-Math.round(tilt/15)*15)<1);
+ }else{
+  if(curScreen==='game')render(modsT()/1000);
+ }
+}
+
+/* ================= СТАРТ ============================================== */
+(function init(){
+ try{const th=localStorage.getItem('sozvezdie_theme');if(th==='dark'||th==='light')document.documentElement.dataset.theme=th;}catch(e){}
+ const al=lang();if(al&&al!==LANG&&(al==='en'||al==='ru'))setLang(al);
+ paintStatic();
+ try{wireUI();}catch(e){console.warn('wireUI:',e);}
+ resize();buildLevel();gameState='idle';
+ Plat.init();
+ requestAnimationFrame(frame);
+})();
+
+/* ================= ОТЛАДОЧНЫЙ API (тесты) ============================= */
+window.__V3={
+ get rot(){return rot;},get TT(){return TT;},get spheres(){return spheres;},get tubes(){return tubes;},
+ get balls(){return balls;},get gates(){return gates;},get gameState(){return gameState;},
+ get levelIdx(){return lvIdx;},get levelCount(){return LEVELS.length;},
+ get progress(){return progress;},get records(){return records;},
+ get levelData(){return LEVELS[lvIdx];},
+ start(lv){startLevel(lv===undefined?Math.min(progress,LEVELS.length-1):lv);},
+ restart(){restart();},
+ buildLevel(idx){if(idx!==undefined)lvIdx=clamp(idx|0,0,LEVELS.length-1);buildLevel();},
+ setBalls(arr){balls=arr;},
+ tiltTo(pitchDeg,yawDeg){TT.pitch=pitchDeg*DEG;TT.yaw=yawDeg*DEG;TT.vyaw=TT.vpitch=0;TT.anim=null;ttApply();},
+ tiltToPort(sphId,dir){const S1=spheres.find(x=>x.id===sphId);if(!S1)return;
+  const y=Math.atan2(-dir[0],dir[2])/DEG;TT.pitch=TT_PMAX;TT.yaw=y*DEG;TT.vyaw=TT.vpitch=0;TT.anim=null;ttApply();},
+ openGate(l){if(gates[l])gates[l].open=true;},
+ closeGate(l){if(gates[l])gates[l].open=false;},
+ toggleGate(l){toggleGate(l);},
+ step(sec){for(let i=0;i<Math.round(sec*SIM_HZ);i++){if(gameState!=='play')break;ttStep(1/SIM_HZ);step(1/SIM_HZ);}},
+ gLoc(){return gLocal();},
+ sphereOf(b){return b.where.kind==='sphere'?spheres[b.where.i].id:'tube:'+tubes[b.where.i].gate;},
+ inSphere(id){const si=spheres.findIndex(x=>x.id===id);return balls.filter(b=>!b.dead&&b.where.kind==='sphere'&&b.where.i===si);},
+ modsOf(id){const S1=spheres.find(x=>x.id===id);return S1?(S1.mods||{}):{};},
+ tubeOf(id){const t=tubes.find(x=>x.id===id);return t?{broken:t.broken,fragile:!!t.fragile,L:+t.L.toFixed(3)}:null;},
+ autoStart(){autoStart();},autoStop(){autoStop();},get autoOn(){return auto.on;},autoPlan(){return AUTO_PLANS[lvIdx]?AUTO_PLANS[lvIdx].length:0;},
+ get camDist(){return cam.dist;},setCamDist(d){setZoom(d);},fitView(){fitCam();}, /* v3.4: зум-тесты */
+ hint(){hintRequest();},hintShow(){hintShow();},get hintState(){return{free:HINTS.free,used:HINTS.used,idx:HINTS.idx,t:+HINTS.t.toFixed(2)};},
+ get fxCount(){return FX.length;},get attemptAuto(){return attemptAuto;},mechShow(){showMech();},get mechOn(){try{return $('mech').classList.contains('on');}catch(e){return false;}}, /* v3.7: тесты подсказки/попапа/эффектов */
+ renderOnce(t){render(t||0.016);}, /* v3.2: тестовый hook — прогон кадра рендера */
+ frameTick(dt){ /* v3.2: тестовый hook — точная копия игрового кадра (ttStep+autoTick+физика SIM_HZ) */
+  ttStep(dt);autoTick(dt);
+  if(curScreen==='game'&&!paused&&gameState==='play'){
+   acc+=dt;let n=0;
+   while(acc>=1/SIM_HZ&&n<4){step(1/SIM_HZ);acc-=1/SIM_HZ;n++;}
+   if(acc>0.2)acc=0;
+   levelT+=dt;
+  }
+ },
+ simulate(levelIdx,runFn,n){ /* v3.1: прогон решения n раз — устойчивость */
+  let wins=0;
+  for(let k=0;k<n;k++){startLevel(levelIdx);runFn(this,k);if(gameState==='win')wins++;}
+  return {attempts:n,wins,rate:wins/n};},
+ projBounds(){MVP=mvp();const out=[];for(const S of spheres){const s=proj(worldPoint(S.C));out.push({id:S.id,x:s[0],y:s[1],r:S.R*ppmAt(s[2])});}return out;},
+ i18nCounts(){return {ru:Object.keys(I18N.ru).length,en:Object.keys(I18N.en).length};}
+};
+bindSpinPad();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a510963f9b18e919',t:'MTc5MzA5MjQyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+
